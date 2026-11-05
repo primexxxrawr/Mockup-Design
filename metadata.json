@@ -1,0 +1,6 @@
+{
+  "name": "Dashboard Rekonsiliasi Billing Principal - Power BI",
+  "description": "Desktop dashboard 16:9 Power BI look-alike untuk rekonsiliasi billing card scheme (Visa & Mastercard) Bank Mandiri.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
