@@ -4,6 +4,7 @@ import { Filter, Maximize2, MoreVertical, Download, Copy, ArrowUpDown, Info } fr
 interface PbiVisualHeaderProps {
   title: string;
   subtitle?: string;
+  caraMembaca?: string;
   onFocus?: () => void;
   onExportCsv?: () => void;
   activeFilterCount?: number;
@@ -13,6 +14,7 @@ interface PbiVisualHeaderProps {
 export const PbiVisualHeader: React.FC<PbiVisualHeaderProps> = ({
   title,
   subtitle,
+  caraMembaca,
   onFocus,
   onExportCsv,
   activeFilterCount = 0,
@@ -20,6 +22,7 @@ export const PbiVisualHeader: React.FC<PbiVisualHeaderProps> = ({
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilterTooltip, setShowFilterTooltip] = useState(false);
+  const [showInfoTooltip, setShowInfoTooltip] = useState(false);
   const [copiedNotification, setCopiedNotification] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -40,14 +43,36 @@ export const PbiVisualHeader: React.FC<PbiVisualHeaderProps> = ({
   };
 
   return (
-    <div className={`flex items-start justify-between px-3 pt-2.5 pb-1 relative select-none ${className}`}>
-      {/* Title & Subtitle */}
+    <div className={`flex items-start justify-between px-3.5 pt-3 pb-1 relative select-none ${className}`}>
+      {/* Title, Info Icon & Subtitle */}
       <div className="flex flex-col min-w-0 pr-2">
-        <h3 className="text-[12px] font-semibold text-[#323130] leading-tight truncate tracking-tight">
-          {title}
-        </h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-[12px] font-semibold text-[#1F2937] leading-tight truncate tracking-tight">
+            {title}
+          </h3>
+          {caraMembaca && (
+            <div className="relative inline-block">
+              <button
+                type="button"
+                onMouseEnter={() => setShowInfoTooltip(true)}
+                onMouseLeave={() => setShowInfoTooltip(false)}
+                onClick={() => setShowInfoTooltip(!showInfoTooltip)}
+                className="text-[#6B7280] hover:text-[#003A70] p-0.5 rounded transition-colors"
+                title="Cara membaca visual ini"
+              >
+                <Info className="w-3.5 h-3.5 text-[#003A70]" />
+              </button>
+              {showInfoTooltip && (
+                <div className="absolute left-0 top-5 z-50 w-64 bg-[#1F2937] text-white text-[11px] leading-relaxed py-1.5 px-2.5 rounded-[2px] shadow-lg pointer-events-none border border-[#374151]">
+                  <span className="font-semibold text-[#F5A800]">Cara membaca: </span>
+                  {caraMembaca}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         {subtitle && (
-          <span className="text-[10px] text-[#605E5C] truncate mt-0.5 leading-tight">
+          <span className="text-[10.5px] text-[#6B7280] truncate mt-0.5 leading-tight">
             {subtitle}
           </span>
         )}

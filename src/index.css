@@ -2,22 +2,20 @@
 
 @layer base {
   :root {
-    --pbi-bg: #F3F2F1;
+    --pbi-bg: #F4F6F9;
     --pbi-tile-bg: #FFFFFF;
-    --pbi-border: #E1DFDD;
-    --pbi-border-hover: #C8C6C4;
-    --pbi-text-title: #323130;
-    --pbi-text-body: #605E5C;
-    --pbi-text-muted: #8A8886;
-    --pbi-header-bg: #FFFFFF;
-    --pbi-tab-active: #0078D4;
-    --pbi-tab-hover: #F3F2F1;
-    --visa-blue: #1A1F71;
-    --mastercard-red: #EB001B;
-    --mastercard-orange: #F79E1B;
-    --status-match: #107C41;
-    --status-deviasi: #D13438;
-    --status-unreconciled: #605E5C;
+    --pbi-border: #E1E5EB;
+    --pbi-border-hover: #CBD5E1;
+    --pbi-text-title: #1F2937;
+    --pbi-text-body: #4B5563;
+    --pbi-text-muted: #6B7280;
+    --brand-navy: #003A70;
+    --brand-gold: #F5A800;
+    --visa-blue: #2B6CB0;
+    --mastercard-orange: #E8832A;
+    --status-sesuai: #1E8E5A;
+    --status-selisih: #C62828;
+    --status-belum-dicek: #8A93A0;
   }
 
   body {

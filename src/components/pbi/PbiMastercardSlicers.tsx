@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MastercardFilterState } from '../../types';
+import { MastercardFilterState, STANDARD_CATEGORIES } from '../../types';
 import {
+  WEEKS,
   PERIODS,
-  SERVICE_KATEGORI_MASTERCARD,
   TIER_EVENT_MASTERCARD,
   BILLABLE_ICA_MASTERCARD,
 } from '../../data/mockData';
@@ -33,7 +33,8 @@ export const PbiMastercardSlicers: React.FC<PbiMastercardSlicersProps> = ({
   }, []);
 
   const activeCount =
-    (filters.periode !== 'Semua' ? 1 : 0) +
+    (filters.minggu !== 'Semua' ? 1 : 0) +
+    (filters.bulan !== 'Semua' ? 1 : 0) +
     (filters.serviceKategori !== 'Semua' ? 1 : 0) +
     (filters.tierEvent !== 'Semua' ? 1 : 0) +
     (filters.bySvByQty !== 'Semua' ? 1 : 0) +
@@ -43,69 +44,118 @@ export const PbiMastercardSlicers: React.FC<PbiMastercardSlicersProps> = ({
   return (
     <div
       ref={containerRef}
-      className="bg-white border-b border-[#E1DFDD] px-4 py-2 flex flex-wrap items-center justify-between gap-2.5 text-[11px] shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+      className="bg-white border-b border-[#E1DFDD] px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
     >
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5 text-[#605E5C] font-semibold uppercase tracking-wider text-[10px] pr-1">
           <Filter className="w-3.5 h-3.5 text-[#EB001B]" />
           <span>Slicer:</span>
         </div>
 
-        {/* 1. Periode Dropdown */}
+        {/* 1. Minggu (Weekly Selector: W01 2026 .. W43 2026) */}
         <div className="relative">
           <button
             type="button"
-            onClick={() => setOpenDropdown(openDropdown === 'periode' ? null : 'periode')}
+            onClick={() => setOpenDropdown(openDropdown === 'minggu' ? null : 'minggu')}
             className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[110px] text-left hover:border-[#8A8886] transition-colors ${
-              filters.periode !== 'Semua' ? 'border-[#EB001B] bg-[#FFF5F5]' : 'border-[#E1DFDD]'
+              filters.minggu !== 'Semua' ? 'border-[#EB001B] bg-[#FFF5F5]' : 'border-[#E1DFDD]'
             }`}
           >
             <div className="flex flex-col">
-              <span className="text-[9px] text-[#8A8886] uppercase font-semibold leading-none">Periode</span>
-              <span className="font-semibold text-[#323130] truncate">{filters.periode}</span>
+              <span className="text-[9px] text-[#8A8886] uppercase font-semibold leading-none">Minggu</span>
+              <span className="font-semibold text-[#323130] truncate">{filters.minggu}</span>
             </div>
             <ChevronDown className="w-3 h-3 text-[#605E5C] shrink-0" />
           </button>
-          {openDropdown === 'periode' && (
-            <div className="absolute left-0 top-10 z-50 w-40 bg-white border border-[#E1DFDD] shadow-lg rounded-[2px] py-1 max-h-56 overflow-y-auto">
+          {openDropdown === 'minggu' && (
+            <div className="absolute left-0 top-10 z-50 w-44 bg-white border border-[#E1DFDD] shadow-lg rounded-[2px] py-1 max-h-56 overflow-y-auto">
               <button
                 onClick={() => {
-                  onChange({ ...filters, periode: 'Semua' });
+                  onChange({ ...filters, minggu: 'Semua' });
                   setOpenDropdown(null);
                 }}
                 className={`w-full text-left px-3 py-1.5 hover:bg-[#F3F2F1] flex items-center justify-between ${
-                  filters.periode === 'Semua' ? 'font-bold text-[#EB001B]' : 'text-[#323130]'
+                  filters.minggu === 'Semua' ? 'font-bold text-[#EB001B]' : 'text-[#323130]'
                 }`}
               >
-                <span>Semua Periode</span>
-                {filters.periode === 'Semua' && <Check className="w-3 h-3 text-[#EB001B]" />}
+                <span>Semua Minggu (W01-W43)</span>
+                {filters.minggu === 'Semua' && <Check className="w-3 h-3 text-[#EB001B]" />}
               </button>
               <div className="h-px bg-[#E1DFDD] my-0.5" />
-              {PERIODS.map((p) => (
+              {WEEKS.map((w) => (
                 <button
-                  key={p}
+                  key={w.weekCode}
                   onClick={() => {
-                    onChange({ ...filters, periode: p });
+                    onChange({ ...filters, minggu: w.weekCode });
                     setOpenDropdown(null);
                   }}
-                  className={`w-full text-left px-3 py-1.5 hover:bg-[#F3F2F1] flex items-center justify-between ${
-                    filters.periode === p ? 'font-bold text-[#EB001B]' : 'text-[#323130]'
+                  className={`w-full text-left px-3 py-1.5 hover:bg-[#F3F2F1] flex items-center justify-between font-mono text-[10.5px] ${
+                    filters.minggu === w.weekCode ? 'font-bold text-[#EB001B]' : 'text-[#323130]'
                   }`}
                 >
-                  <span>{p}</span>
-                  {filters.periode === p && <Check className="w-3 h-3 text-[#EB001B]" />}
+                  <span>{w.weekCode} ({w.startDate})</span>
+                  {filters.minggu === w.weekCode && <Check className="w-3 h-3 text-[#EB001B]" />}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* 2. Service Kategori Dropdown */}
+        {/* 2. Bulan Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpenDropdown(openDropdown === 'bulan' ? null : 'bulan')}
+            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[105px] text-left hover:border-[#8A8886] transition-colors ${
+              filters.bulan !== 'Semua' ? 'border-[#EB001B] bg-[#FFF5F5]' : 'border-[#E1DFDD]'
+            }`}
+          >
+            <div className="flex flex-col">
+              <span className="text-[9px] text-[#8A8886] uppercase font-semibold leading-none">Bulan</span>
+              <span className="font-semibold text-[#323130] truncate">{filters.bulan}</span>
+            </div>
+            <ChevronDown className="w-3 h-3 text-[#605E5C] shrink-0" />
+          </button>
+          {openDropdown === 'bulan' && (
+            <div className="absolute left-0 top-10 z-50 w-36 bg-white border border-[#E1DFDD] shadow-lg rounded-[2px] py-1 max-h-56 overflow-y-auto">
+              <button
+                onClick={() => {
+                  onChange({ ...filters, bulan: 'Semua' });
+                  setOpenDropdown(null);
+                }}
+                className={`w-full text-left px-3 py-1.5 hover:bg-[#F3F2F1] flex items-center justify-between ${
+                  filters.bulan === 'Semua' ? 'font-bold text-[#EB001B]' : 'text-[#323130]'
+                }`}
+              >
+                <span>Semua Bulan</span>
+                {filters.bulan === 'Semua' && <Check className="w-3 h-3 text-[#EB001B]" />}
+              </button>
+              <div className="h-px bg-[#E1DFDD] my-0.5" />
+              {PERIODS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => {
+                    onChange({ ...filters, bulan: p });
+                    setOpenDropdown(null);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 hover:bg-[#F3F2F1] flex items-center justify-between ${
+                    filters.bulan === p ? 'font-bold text-[#EB001B]' : 'text-[#323130]'
+                  }`}
+                >
+                  <span>{p}</span>
+                  {filters.bulan === p && <Check className="w-3 h-3 text-[#EB001B]" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 3. Service Kategori Dropdown (Exactly 4 standard categories) */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setOpenDropdown(openDropdown === 'kategori' ? null : 'kategori')}
-            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[130px] text-left hover:border-[#8A8886] transition-colors ${
+            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[125px] text-left hover:border-[#8A8886] transition-colors ${
               filters.serviceKategori !== 'Semua' ? 'border-[#EB001B] bg-[#FFF5F5]' : 'border-[#E1DFDD]'
             }`}
           >
@@ -130,7 +180,7 @@ export const PbiMastercardSlicers: React.FC<PbiMastercardSlicersProps> = ({
                 {filters.serviceKategori === 'Semua' && <Check className="w-3 h-3 text-[#EB001B]" />}
               </button>
               <div className="h-px bg-[#E1DFDD] my-0.5" />
-              {SERVICE_KATEGORI_MASTERCARD.map((k) => (
+              {STANDARD_CATEGORIES.map((k) => (
                 <button
                   key={k}
                   onClick={() => {
@@ -149,12 +199,12 @@ export const PbiMastercardSlicers: React.FC<PbiMastercardSlicersProps> = ({
           )}
         </div>
 
-        {/* 3. Tier Event Dropdown */}
+        {/* 4. Tier Event Dropdown */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setOpenDropdown(openDropdown === 'tier' ? null : 'tier')}
-            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[110px] text-left hover:border-[#8A8886] transition-colors ${
+            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[105px] text-left hover:border-[#8A8886] transition-colors ${
               filters.tierEvent !== 'Semua' ? 'border-[#EB001B] bg-[#FFF5F5]' : 'border-[#E1DFDD]'
             }`}
           >
@@ -198,7 +248,7 @@ export const PbiMastercardSlicers: React.FC<PbiMastercardSlicersProps> = ({
           )}
         </div>
 
-        {/* 4. By SV / By Qty Tile Buttons */}
+        {/* 5. By SV / By Qty Tile Buttons */}
         <div className="flex items-center border border-[#E1DFDD] rounded-[2px] overflow-hidden bg-[#FAF9F8]">
           <span className="text-[9px] text-[#8A8886] font-semibold uppercase px-2 py-1 border-r border-[#E1DFDD] bg-[#F3F2F1]">
             Type
@@ -217,12 +267,12 @@ export const PbiMastercardSlicers: React.FC<PbiMastercardSlicersProps> = ({
           ))}
         </div>
 
-        {/* 5. Billable ICA Dropdown */}
+        {/* 6. Billable ICA Dropdown */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setOpenDropdown(openDropdown === 'ica' ? null : 'ica')}
-            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[110px] text-left hover:border-[#8A8886] transition-colors ${
+            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[105px] text-left hover:border-[#8A8886] transition-colors ${
               filters.billableIca !== 'Semua' ? 'border-[#EB001B] bg-[#FFF5F5]' : 'border-[#E1DFDD]'
             }`}
           >
@@ -266,12 +316,12 @@ export const PbiMastercardSlicers: React.FC<PbiMastercardSlicersProps> = ({
           )}
         </div>
 
-        {/* 6. Status Slicer */}
+        {/* 7. Status Slicer */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
-            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[120px] text-left hover:border-[#8A8886] transition-colors ${
+            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[115px] text-left hover:border-[#8A8886] transition-colors ${
               filters.status !== 'Semua' ? 'border-[#EB001B] bg-[#FFF5F5]' : 'border-[#E1DFDD]'
             }`}
           >

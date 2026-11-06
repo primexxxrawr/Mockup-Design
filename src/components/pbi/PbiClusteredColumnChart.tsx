@@ -11,6 +11,7 @@ export interface GenericClusteredItem {
 interface PbiClusteredColumnChartProps {
   title: string;
   subtitle?: string;
+  caraMembaca?: string;
   data: GenericClusteredItem[];
   series1Name: string;
   series1Color: string;
@@ -25,6 +26,7 @@ interface PbiClusteredColumnChartProps {
 export const PbiClusteredColumnChart: React.FC<PbiClusteredColumnChartProps> = ({
   title,
   subtitle,
+  caraMembaca,
   data,
   series1Name,
   series1Color,
@@ -68,17 +70,18 @@ export const PbiClusteredColumnChart: React.FC<PbiClusteredColumnChartProps> = (
 
   return (
     <div
-      className={`bg-white border border-[#E1DFDD] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex flex-col relative transition-all hover:border-[#C8C6C4] ${className}`}
+      className={`bg-white border border-[#E1E5EB] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex flex-col relative transition-all hover:border-[#CBD5E1] ${className}`}
     >
       <PbiVisualHeader
         title={title}
         subtitle={subtitle}
+        caraMembaca={caraMembaca}
         onFocus={onFocus}
         onExportCsv={onExportCsv}
       />
 
       {/* Legend */}
-      <div className="flex items-center justify-end px-3 py-1 gap-4 text-[11px] text-[#605E5C] border-b border-[#F3F2F1]">
+      <div className="flex items-center justify-end px-3 py-1 gap-4 text-[11px] text-[#6B7280] border-b border-[#F4F6F9]">
         <div className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 inline-block rounded-[1px]"

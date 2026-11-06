@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { PbiVisualHeader } from './PbiVisualHeader';
 import { formatNumber, formatPercentage } from '../../data/mockData';
+import { getStatusDisplayLabel, DeviationStatus } from '../../types';
 
 export interface DonutSlice {
-  label: 'Match' | 'Deviasi' | 'Belum Direkonsiliasi';
+  label: string;
   value: number;
   color: string;
 }
@@ -11,6 +12,7 @@ export interface DonutSlice {
 interface PbiDonutChartProps {
   title: string;
   subtitle?: string;
+  caraMembaca?: string;
   data: DonutSlice[];
   centerLabel?: string;
   centerValue?: string;
@@ -22,6 +24,7 @@ interface PbiDonutChartProps {
 export const PbiDonutChart: React.FC<PbiDonutChartProps> = ({
   title,
   subtitle,
+  caraMembaca,
   data,
   centerLabel = 'Total Records',
   centerValue,
@@ -80,11 +83,12 @@ export const PbiDonutChart: React.FC<PbiDonutChartProps> = ({
 
   return (
     <div
-      className={`bg-white border border-[#E1DFDD] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex flex-col relative transition-all hover:border-[#C8C6C4] ${className}`}
+      className={`bg-white border border-[#E1E5EB] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex flex-col relative transition-all hover:border-[#CBD5E1] ${className}`}
     >
       <PbiVisualHeader
         title={title}
         subtitle={subtitle}
+        caraMembaca={caraMembaca}
         onFocus={onFocus}
         onExportCsv={onExportCsv}
       />

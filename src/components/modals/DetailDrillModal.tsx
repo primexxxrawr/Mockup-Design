@@ -121,6 +121,10 @@ export const DetailDrillModal: React.FC<DetailDrillModalProps> = ({
                   <span className="font-semibold text-[#323130] font-mono">{mc!.TANGGAL}</span>
                 </div>
                 <div>
+                  <span className="text-[10px] text-[#8A8886] block">MINGGU &amp; BULAN:</span>
+                  <span className="font-semibold text-[#0078D4] font-mono">{mc!.Minggu} ({mc!.Bulan})</span>
+                </div>
+                <div>
                   <span className="text-[10px] text-[#8A8886] block">EVENT ID:</span>
                   <span className="font-semibold text-[#323130] font-mono">{mc!['EVENT ID']}</span>
                 </div>
@@ -294,15 +298,25 @@ export const DetailDrillModal: React.FC<DetailDrillModalProps> = ({
             <h4 className="text-[11px] font-bold text-[#323130] uppercase tracking-wider mb-2 border-b border-[#F3F2F1] pb-1">
               4. Komparasi Selisih
             </h4>
-            <div className="grid grid-cols-2 gap-3 mb-2 font-mono text-[11.5px]">
+            <div className={`grid ${!isMastercard ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'} gap-3 mb-2 font-mono text-[11.5px]`}>
               <div className="p-2 bg-[#FAF9F8] border border-[#EDEBE9] rounded-[2px]">
-                <span className="text-[10px] text-[#8A8886] block">Nominal Selisih:</span>
+                <span className="text-[10px] text-[#8A8886] block">
+                  {isMastercard ? 'Nominal Selisih (IDR):' : 'Selisih (Tagihan):'}
+                </span>
                 <span className={`font-bold text-[14px] ${isDeviasi ? 'text-[#D13438]' : 'text-[#107C41]'}`}>
                   {isMastercard
                     ? formatRupiah(mc!.SELISIH)
                     : formatCurrencyVal(visa!.Selisih, visa!['Billing Currency'])}
                 </span>
               </div>
+              {!isMastercard && (
+                <div className="p-2 bg-[#FFF8EB] border border-[#FAD2D2] rounded-[2px]">
+                  <span className="text-[10px] text-[#8A8886] block">Selisih Ekuivalen (Rp):</span>
+                  <span className={`font-bold text-[14px] ${isDeviasi ? 'text-[#A80000]' : 'text-[#107C41]'}`}>
+                    {formatRupiah(visa!.selisihIdr)}
+                  </span>
+                </div>
+              )}
               <div className="p-2 bg-[#FAF9F8] border border-[#EDEBE9] rounded-[2px]">
                 <span className="text-[10px] text-[#8A8886] block">Persentase Selisih:</span>
                 <span className={`font-bold text-[14px] ${isDeviasi ? 'text-[#D13438]' : 'text-[#107C41]'}`}>
@@ -316,7 +330,7 @@ export const DetailDrillModal: React.FC<DetailDrillModalProps> = ({
             {/* Note if Visa */}
             {!isMastercard && (
               <p className="text-[10px] text-[#8A8886] italic mb-1">
-                * Catatan: Selisih dalam mata uang tagihan (asumsi)
+                * Catatan: Selisih dalam mata uang tagihan (asumsi) · Ekuivalen IDR dihitung dengan kurs acuan 16.250
               </p>
             )}
 

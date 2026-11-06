@@ -1,90 +1,62 @@
 import React from 'react';
-import { PipelineStep, PipelineStatus } from '../../types';
-import { CheckCircle2, Clock, PlayCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Clock } from 'lucide-react';
+
+interface SimpleStep {
+  label: string;
+  sublabel: string;
+  status: 'Selesai' | 'Sedang Berjalan' | 'Siap';
+}
+
+const DEFAULT_STEPS: SimpleStep[] = [
+  { label: 'Data Ditarik', sublabel: 'Jan–Okt 2026', status: 'Selesai' },
+  { label: 'Dibersihkan', sublabel: 'Standardisasi Skema', status: 'Selesai' },
+  { label: 'Dibandingkan', sublabel: 'Mandiri vs Principal', status: 'Selesai' },
+  { label: 'Siap Dilaporkan', sublabel: 'Toleransi Rp0', status: 'Siap' },
+];
 
 interface PbiProcessStripProps {
-  steps: PipelineStep[];
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
   className?: string;
 }
 
 export const PbiProcessStrip: React.FC<PbiProcessStripProps> = ({
-  steps,
-  onRefresh,
-  isRefreshing = false,
   className = '',
 }) => {
-  const renderStatusBadge = (status: PipelineStatus) => {
-    switch (status) {
-      case 'Selesai':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#107C41] bg-[#F1F9F4] px-1.5 py-0.5 rounded-[2px] border border-[#D5EEDD]">
-            <CheckCircle2 className="w-2.5 h-2.5" />
-            Selesai
-          </span>
-        );
-      case 'Berjalan':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#0078D4] bg-[#F0F6FF] px-1.5 py-0.5 rounded-[2px] border border-[#CCE4F7] animate-pulse">
-            <PlayCircle className="w-2.5 h-2.5" />
-            Berjalan
-          </span>
-        );
-      case 'Menunggu':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#605E5C] bg-[#F3F2F1] px-1.5 py-0.5 rounded-[2px] border border-[#E1DFDD]">
-            <Clock className="w-2.5 h-2.5" />
-            Menunggu
-          </span>
-        );
-    }
-  };
-
   return (
-    <div className={`bg-white border border-[#E1DFDD] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.03)] px-3 py-2 ${className}`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-[#323130] uppercase tracking-wider">
-            Status Pipeline Data Rekonsiliasi
-          </span>
-          <span className="text-[10px] text-[#8A8886]">
-            (Tahapan pipeline data dummy)
-          </span>
-        </div>
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-1 text-[10px] text-[#0078D4] hover:text-[#106EBE] hover:underline transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>{isRefreshing ? 'Sinkronisasi...' : 'Sinkronkan Pipeline'}</span>
-          </button>
-        )}
+    <div
+      className={`bg-white border border-[#E1E5EB] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.02)] px-4 py-2 ${className}`}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10px] font-bold text-[#003A70] uppercase tracking-wider">
+          Alur Rekonsiliasi Data
+        </span>
+        <span className="text-[10.5px] text-[#6B7280]">
+          Status proses data otomatis harian
+        </span>
       </div>
 
-      {/* 4 Steps Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        {steps.map((step, idx) => (
+      {/* 4 Plain Horizontal Steps */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {DEFAULT_STEPS.map((step, idx) => (
           <div
-            key={step.id || idx}
-            className="bg-[#FAF9F8] border border-[#EDEBE9] rounded-[2px] p-2 flex flex-col justify-between hover:border-[#C8C6C4] transition-colors"
+            key={idx}
+            className="flex items-center gap-2 p-1.5 bg-[#F4F6F9] border border-[#E1E5EB] rounded-[2px]"
           >
-            <div className="flex items-center justify-between gap-1 mb-1">
-              <span className="text-[11px] font-semibold text-[#323130] truncate">
-                {step.name}
-              </span>
-              {renderStatusBadge(step.status)}
+            <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#003A70] text-[#F5A800] text-[10px] font-bold shrink-0">
+              {idx + 1}
             </div>
-
-            <div className="text-[12px] font-bold text-[#323130] truncate tabular-nums">
-              {step.primaryMetric}
-            </div>
-
-            <div className="text-[9.5px] text-[#605E5C] truncate mt-0.5" title={step.secondaryInfo}>
-              {step.secondaryInfo}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-[#1F2937] truncate">
+                  {step.label}
+                </span>
+                <span className="inline-flex items-center gap-0.5 text-[9.5px] font-semibold text-[#1E8E5A] bg-[#1E8E5A]/10 px-1 py-0.2 rounded-[1px]">
+                  <CheckCircle2 className="w-2.5 h-2.5" />
+                  {step.status}
+                </span>
+              </div>
+              <div className="text-[10px] text-[#6B7280] truncate">
+                {step.sublabel}
+              </div>
             </div>
           </div>
         ))}
@@ -92,3 +64,4 @@ export const PbiProcessStrip: React.FC<PbiProcessStripProps> = ({
     </div>
   );
 };
+

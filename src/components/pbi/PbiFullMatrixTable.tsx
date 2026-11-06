@@ -6,6 +6,7 @@ import {
   formatNumber,
   formatPercentage,
   formatRupiah,
+  formatUSD,
 } from '../../data/mockData';
 import { ArrowUpDown, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 
@@ -54,7 +55,7 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let bVal = (b as any)[sortField];
 
-      if (sortField === 'Selisih' || sortField === 'Total' || sortField === 'Total Fee BMRI') {
+      if (sortField === 'Selisih' || sortField === 'Total' || sortField === 'Total Fee BMRI' || sortField === 'selisihIdr') {
         aVal = Math.abs(Number(aVal) || 0);
         bVal = Math.abs(Number(bVal) || 0);
       }
@@ -98,27 +99,70 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
   const currentVisaRows = sortedVisa.slice((page - 1) * pageSize, page * pageSize);
   const currentMcRows = sortedMc.slice((page - 1) * pageSize, page * pageSize);
 
+  // Totals calculations (Baseline compliance: sum in USD-equivalent for Visa, Selisih in Rp)
+  const visaTotals = useMemo(() => {
+    const totalUnits = visaRecords.reduce((acc, r) => acc + (r.Units || 0), 0);
+    const totalUnitsBmri = visaRecords.reduce((acc, r) => acc + (r['Jumlah Units BMRI'] || 0), 0);
+    const totalUsd = visaRecords.reduce((acc, r) => acc + (r.totalUsd || 0), 0);
+    const totalFeeBmriUsd = visaRecords.reduce((acc, r) => acc + (r.totalFeeBmriUsd || 0), 0);
+    const selisihIdr = visaRecords.reduce((acc, r) => acc + (r.selisihIdr || 0), 0);
+
+    return {
+      totalUnits,
+      totalUnitsBmri,
+      totalUsd,
+      totalFeeBmriUsd,
+      selisihIdr,
+    };
+  }, [visaRecords]);
+
+  const mcTotals = useMemo(() => {
+    const qtyMandiri = mcRecords.reduce((acc, r) => acc + (r['QTY MANDIRI'] || 0), 0);
+    const chargeMandiri = mcRecords.reduce((acc, r) => acc + (r['CHARGE MANDIRI'] || 0), 0);
+    const taxMandiri = mcRecords.reduce((acc, r) => acc + (r['TAX MANDIRI'] || 0), 0);
+    const totalMandiri = mcRecords.reduce((acc, r) => acc + (r['TOTAL MANDIRI'] || 0), 0);
+
+    const qtyMc = mcRecords.reduce((acc, r) => acc + (r['QTY MASTERCARD'] || 0), 0);
+    const chargeMc = mcRecords.reduce((acc, r) => acc + (r['CHARGE MASTERCARD'] || 0), 0);
+    const taxMc = mcRecords.reduce((acc, r) => acc + (r['TAX MASTERCARD'] || 0), 0);
+    const totalMc = mcRecords.reduce((acc, r) => acc + (r['TOTAL MASTERCARD'] || 0), 0);
+
+    const selisih = mcRecords.reduce((acc, r) => acc + (r.SELISIH || 0), 0);
+
+    return {
+      qtyMandiri,
+      chargeMandiri,
+      taxMandiri,
+      totalMandiri,
+      qtyMc,
+      chargeMc,
+      taxMc,
+      totalMc,
+      selisih,
+    };
+  }, [mcRecords]);
+
   const renderStatus = (status: DeviationStatus) => {
     switch (status) {
       case 'Match':
         return (
-          <span className="inline-flex items-center gap-1 text-[#107C41] font-semibold text-[10.5px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#107C41]" />
-            Match
+          <span className="inline-flex items-center gap-1 text-[#1E8E5A] font-semibold text-[10.5px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#1E8E5A]" />
+            Sesuai
           </span>
         );
       case 'Deviasi':
         return (
-          <span className="inline-flex items-center gap-1 text-[#D13438] font-semibold text-[10.5px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D13438]" />
-            Deviasi
+          <span className="inline-flex items-center gap-1 text-[#C62828] font-semibold text-[10.5px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C62828]" />
+            Ada Selisih
           </span>
         );
       case 'Belum Direkonsiliasi':
         return (
-          <span className="inline-flex items-center gap-1 text-[#605E5C] font-semibold text-[10.5px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#8A8886]" />
-            Belum Rekon
+          <span className="inline-flex items-center gap-1 text-[#8A93A0] font-semibold text-[10.5px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#8A93A0]" />
+            Belum Dicek
           </span>
         );
     }
@@ -126,21 +170,22 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
 
   return (
     <div
-      className={`bg-white border border-[#E1DFDD] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex flex-col relative transition-all hover:border-[#C8C6C4] ${className}`}
+      className={`bg-white border border-[#E1E5EB] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex flex-col relative transition-all hover:border-[#CBD5E1] ${className}`}
     >
       <PbiVisualHeader
         title={`Matriks Detail Seluruh Kolom (${principalMode})`}
-        subtitle="2 Kolom pertama dibekukan (frozen) · Geser horizontal untuk melihat seluruh 20-24 kolom laporan"
+        subtitle="Untuk analis dan operasional · 2 Kolom pertama dibekukan (frozen) · Geser horizontal untuk melihat seluruh kolom"
+        caraMembaca="Tabel operasional lengkap yang memuat seluruh parameter teknis dan rumus perhitungan selisih antara bank dan principal."
         onFocus={onFocus}
         onExportCsv={onExportCsv}
       />
 
       {/* Control Bar: Principal Toggle & Pagination */}
-      <div className="px-3 py-2 border-b border-[#F3F2F1] flex flex-wrap items-center justify-between gap-3 bg-[#FAF9F8]">
+      <div className="px-3.5 py-2 border-b border-[#F4F6F9] flex flex-wrap items-center justify-between gap-3 bg-[#F4F6F9]">
         {/* Toggle Visa | Mastercard */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-[#605E5C]">Pilih Struktur Tabel:</span>
-          <div className="flex items-center border border-[#E1DFDD] rounded-[2px] overflow-hidden bg-white shadow-sm">
+          <span className="text-[11px] font-semibold text-[#6B7280]">Pilih Skema:</span>
+          <div className="flex items-center border border-[#E1E5EB] rounded-[2px] overflow-hidden bg-white shadow-xs">
             <button
               type="button"
               onClick={() => {
@@ -150,12 +195,12 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
               }}
               className={`px-3 py-1 text-[11px] font-semibold transition-colors flex items-center gap-1.5 ${
                 principalMode === 'Visa'
-                  ? 'bg-[#1A1F71] text-white'
-                  : 'text-[#323130] hover:bg-[#F3F2F1]'
+                  ? 'bg-[#2B6CB0] text-white'
+                  : 'text-[#1F2937] hover:bg-[#F4F6F9]'
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
-              <span>Visa (24 Kolom)</span>
+              <span>Visa (24 Kolom + Selisih Rp)</span>
             </button>
             <button
               type="button"
@@ -164,14 +209,14 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
                 setPage(1);
                 setSortField('SELISIH');
               }}
-              className={`px-3 py-1 text-[11px] font-semibold transition-colors flex items-center gap-1.5 border-l border-[#E1DFDD] ${
+              className={`px-3 py-1 text-[11px] font-semibold transition-colors flex items-center gap-1.5 border-l border-[#E1E5EB] ${
                 principalMode === 'Mastercard'
-                  ? 'bg-[#EB001B] text-white'
-                  : 'text-[#323130] hover:bg-[#F3F2F1]'
+                  ? 'bg-[#E8832A] text-white'
+                  : 'text-[#1F2937] hover:bg-[#F4F6F9]'
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
-              <span>Mastercard (20 Kolom)</span>
+              <span>Mastercard (20 Kolom + Periode)</span>
             </button>
           </div>
         </div>
@@ -210,7 +255,7 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
       {/* Main Table with Horizontal Scroll & Frozen 2 Columns */}
       <div className="overflow-x-auto flex-1 relative max-h-[580px]">
         {principalMode === 'Mastercard' ? (
-          /* MASTERCARD FULL 20 COLUMNS TABLE */
+          /* MASTERCARD FULL COLUMNS TABLE WITH MINGGU & BULAN */
           <table className="w-full text-[11px] text-left border-collapse select-none">
             <thead>
               <tr className="bg-[#FAF9F8] border-b border-[#E1DFDD] text-[#323130] font-semibold text-[10.5px]">
@@ -232,7 +277,14 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
                     )}
                   </div>
                 </th>
-                {/* Columns 3 to 20 */}
+                {/* Derived Granularity Columns */}
+                <th onClick={() => handleSort('Minggu')} className="py-2 px-2.5 whitespace-nowrap cursor-pointer hover:bg-[#EDEBE9] font-mono text-[#0078D4]">
+                  MINGGU
+                </th>
+                <th onClick={() => handleSort('Bulan')} className="py-2 px-2.5 whitespace-nowrap cursor-pointer hover:bg-[#EDEBE9]">
+                  BULAN
+                </th>
+                {/* Standard 20 Columns */}
                 <th onClick={() => handleSort('EVENT ID')} className="py-2 px-2.5 whitespace-nowrap cursor-pointer hover:bg-[#EDEBE9]">EVENT ID</th>
                 <th className="py-2 px-2.5 whitespace-nowrap">TIER EVENT</th>
                 <th className="py-2 px-2.5 whitespace-nowrap">DESC</th>
@@ -274,7 +326,9 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
                     <td className="sticky left-14 z-10 bg-white group-hover:bg-[#F3F2F1] py-1.5 px-3 font-mono tabular-nums text-[#323130] whitespace-nowrap border-r-2 border-[#C8C6C4] shadow-[2px_0_4px_rgba(0,0,0,0.04)]">
                       {r.TANGGAL}
                     </td>
-                    <td className="py-1.5 px-2.5 font-mono text-[#0078D4] whitespace-nowrap">{r['EVENT ID']}</td>
+                    <td className="py-1.5 px-2.5 font-mono text-[#0078D4] font-semibold whitespace-nowrap">{r.Minggu}</td>
+                    <td className="py-1.5 px-2.5 whitespace-nowrap text-[#605E5C]">{r.Bulan}</td>
+                    <td className="py-1.5 px-2.5 font-mono text-[#323130] whitespace-nowrap">{r['EVENT ID']}</td>
                     <td className="py-1.5 px-2.5 whitespace-nowrap">{r['TIER EVENT']}</td>
                     <td className="py-1.5 px-2.5 text-[#605E5C] max-w-[150px] truncate" title={r.DESC}>{r.DESC}</td>
                     <td className="py-1.5 px-2.5 whitespace-nowrap">{r['BY SV / BY QTY']}</td>
@@ -311,9 +365,30 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
                 );
               })}
             </tbody>
+            {/* Totals Row (Power BI Standard Matrix Total) */}
+            <tfoot>
+              <tr className="bg-[#FAF9F8] border-t-2 border-[#323130] font-bold text-[#323130] text-[11px]">
+                <td className="sticky left-0 z-10 bg-[#FAF9F8] py-2 px-2.5 text-center border-r border-[#EDEBE9]" colSpan={2}>
+                  Total ({mcRecords.length} baris)
+                </td>
+                <td className="py-2 px-2.5" colSpan={6}>-</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums">{formatNumber(mcTotals.qtyMandiri)}</td>
+                <td className="py-2 px-2.5 text-right">-</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums">{formatRupiah(mcTotals.chargeMandiri)}</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums">{formatRupiah(mcTotals.taxMandiri)}</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[#0078D4] bg-[#F5F8FF]">{formatRupiah(mcTotals.totalMandiri)}</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums">{formatNumber(mcTotals.qtyMc)}</td>
+                <td className="py-2 px-2.5 text-right">-</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums">{formatRupiah(mcTotals.chargeMc)}</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums">{formatRupiah(mcTotals.taxMc)}</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[#EB001B] bg-[#FFF5F5]">{formatRupiah(mcTotals.totalMc)}</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[#A80000] bg-[#FFF8EB]">{formatRupiah(mcTotals.selisih)}</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums" colSpan={5}>-</td>
+              </tr>
+            </tfoot>
           </table>
         ) : (
-          /* VISA FULL 24 COLUMNS TABLE */
+          /* VISA FULL COLUMNS TABLE WITH SELISIH (TAGIHAN) & SELISIH (RP) */
           <table className="w-full text-[11px] text-left border-collapse select-none">
             <thead>
               <tr className="bg-[#FAF9F8] border-b border-[#E1DFDD] text-[#323130] font-semibold text-[10.5px]">
@@ -335,7 +410,7 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
                     )}
                   </div>
                 </th>
-                {/* Columns 3 to 24 */}
+                {/* Columns 3 to 25 */}
                 <th className="py-2 px-2.5 whitespace-nowrap">Invoice Date</th>
                 <th className="py-2 px-2.5 whitespace-nowrap">Current or Previous</th>
                 <th className="py-2 px-2.5 whitespace-nowrap">Mapping</th>
@@ -356,7 +431,8 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
                 <th onClick={() => handleSort('Total')} className="py-2 px-2.5 text-right whitespace-nowrap cursor-pointer hover:bg-[#EDEBE9] bg-[#FFF5F5]">Total</th>
                 <th className="py-2 px-2.5 text-right whitespace-nowrap">Jumlah Units BMRI</th>
                 <th onClick={() => handleSort('Total Fee BMRI')} className="py-2 px-2.5 text-right whitespace-nowrap cursor-pointer hover:bg-[#EDEBE9] bg-[#F5F8FF]">Total Fee BMRI</th>
-                <th onClick={() => handleSort('Selisih')} className="py-2 px-2.5 text-right whitespace-nowrap cursor-pointer hover:bg-[#EDEBE9] bg-[#FFF8EB]">Selisih</th>
+                <th onClick={() => handleSort('Selisih')} className="py-2 px-2.5 text-right whitespace-nowrap cursor-pointer hover:bg-[#EDEBE9] bg-[#FFF8EB]">Selisih (Tagihan)</th>
+                <th onClick={() => handleSort('selisihIdr')} className="py-2 px-2.5 text-right whitespace-nowrap cursor-pointer hover:bg-[#EDEBE9] bg-[#FFF0E6]">Selisih (Rp)</th>
                 <th className="py-2 px-2.5 text-right whitespace-nowrap">% Selisih</th>
                 <th className="py-2 px-2.5 whitespace-nowrap">STATUS</th>
                 <th className="py-2 px-2.5 whitespace-nowrap">Catatan</th>
@@ -410,6 +486,11 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
                     }`}>
                       {formatCurrencyVal(r.Selisih, r['Billing Currency'])}
                     </td>
+                    <td className={`py-1.5 px-2.5 text-right font-mono tabular-nums font-bold bg-[#FFF0E6] ${
+                      isDeviasi ? 'text-[#A80000]' : 'text-[#107C41]'
+                    }`}>
+                      {formatRupiah(r.selisihIdr)}
+                    </td>
                     <td className={`py-1.5 px-2.5 text-right font-mono tabular-nums ${
                       isDeviasi ? 'text-[#D13438] font-medium' : 'text-[#605E5C]'
                     }`}>
@@ -426,14 +507,38 @@ export const PbiFullMatrixTable: React.FC<PbiFullMatrixTableProps> = ({
                 );
               })}
             </tbody>
+            {/* Totals Row (Power BI Standard Matrix Total - USD equivalent & Selisih Rp) */}
+            <tfoot>
+              <tr className="bg-[#FAF9F8] border-t-2 border-[#323130] font-bold text-[#323130] text-[11px]">
+                <td className="sticky left-0 z-10 bg-[#FAF9F8] py-2 px-2.5 text-center border-r border-[#EDEBE9]" colSpan={2}>
+                  Total ({visaRecords.length} baris)
+                </td>
+                <td className="py-2 px-2.5" colSpan={12}>-</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums">{formatNumber(visaTotals.totalUnits)}</td>
+                <td className="py-2 px-2.5" colSpan={3}>-</td>
+                <td className="py-2 px-2.5 font-mono text-[10px] text-[#0078D4]">Ekuiv. USD</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[#1A1F71] bg-[#FFF5F5]">
+                  {formatUSD(visaTotals.totalUsd)}
+                </td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums">{formatNumber(visaTotals.totalUnitsBmri)}</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[#0078D4] bg-[#F5F8FF]">
+                  {formatUSD(visaTotals.totalFeeBmriUsd)}
+                </td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[#8A8886]">-</td>
+                <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[#A80000] bg-[#FFF0E6]">
+                  {formatRupiah(visaTotals.selisihIdr)}
+                </td>
+                <td className="py-2 px-2.5" colSpan={4}>-</td>
+              </tr>
+            </tfoot>
           </table>
         )}
       </div>
 
       {/* Footer hint */}
       <div className="px-3 py-1.5 border-t border-[#E1DFDD] bg-[#FAF9F8] text-[10px] text-[#8A8886] flex items-center justify-between">
-        <span>* Kolom Catatan sengaja dikosongkan (tanpa klaim fiktif) sesuai pedoman rekonsiliasi.</span>
-        <span>Selisih dihitung: {principalMode === 'Mastercard' ? 'TOTAL MC - TOTAL MANDIRI' : 'Total (Visa) - Total Fee BMRI'}</span>
+        <span>* Kolom Catatan sengaja dikosongkan sesuai pedoman rekonsiliasi. Baris total: Visa dihitung dalam USD-equivalent, Selisih dalam Rupiah.</span>
+        <span>Selisih: {principalMode === 'Mastercard' ? 'TOTAL MC - TOTAL MANDIRI (IDR)' : 'Total (Visa) - Total Fee BMRI'}</span>
       </div>
     </div>
   );

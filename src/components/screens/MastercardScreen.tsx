@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
-import { MastercardRecord, MastercardFilterState, PipelineStep } from '../../types';
+import { MastercardRecord, MastercardFilterState, PipelineStep, STANDARD_CATEGORIES } from '../../types';
 import { PbiKpiCard } from '../pbi/PbiKpiCard';
 import { PbiClusteredColumnChart, GenericClusteredItem } from '../pbi/PbiClusteredColumnChart';
 import { PbiLineChart, LineChartPoint } from '../pbi/PbiLineChart';
-import { PbiPenyebabSelisihChart, CauseItem } from '../pbi/PbiPenyebabSelisihChart';
-import { PbiMastercardKeyTable } from '../pbi/PbiMastercardKeyTable';
+import { PbiDonutChart, DonutSlice } from '../pbi/PbiDonutChart';
 import { PbiProcessStrip } from '../pbi/PbiProcessStrip';
+import { PbiKesimpulanBanner } from '../pbi/PbiKesimpulanBanner';
+import { PbiPerluPerhatianTable, PerluPerhatianItem } from '../pbi/PbiPerluPerhatianTable';
 import {
-  SERVICE_KATEGORI_MASTERCARD,
-  PERIODS,
+  WEEKS,
   formatCompactRupiah,
   formatNumber,
   formatPercentage,
@@ -19,49 +19,65 @@ interface MastercardScreenProps {
   records: MastercardRecord[];
   allRecords: MastercardRecord[];
   filters: MastercardFilterState;
-  pipelineSteps: PipelineStep[];
-  onRefreshPipeline: () => void;
-  isRefreshingPipeline: boolean;
+  pipelineSteps?: PipelineStep[];
+  onRefreshPipeline?: () => void;
+  isRefreshingPipeline?: boolean;
   onSelectRecord: (record: MastercardRecord) => void;
   onOpenFocus: (title: string, content: React.ReactNode) => void;
   onExportCsv: (visualName: string) => void;
+  onDrillThroughItem?: (item: PerluPerhatianItem) => void;
 }
 
 export const MastercardScreen: React.FC<MastercardScreenProps> = ({
   records,
   allRecords,
   filters,
-  pipelineSteps,
-  onRefreshPipeline,
-  isRefreshingPipeline,
-  onSelectRecord,
   onOpenFocus,
   onExportCsv,
+  onDrillThroughItem,
 }) => {
-  // 1. KPI Cards
+  const isMonthFiltered = filters.bulan !== 'Semua';
+
+  // 1. KPI Cards (in IDR)
   const kpis = useMemo(() => {
-    const totalChargeMc = records.reduce((acc, r) => acc + r['CHARGE MASTERCARD'], 0);
     const totalMc = records.reduce((acc, r) => acc + r['TOTAL MASTERCARD'], 0);
     const countMatch = records.filter((r) => r.STATUS === 'Match').length;
     const countDeviasi = records.filter((r) => r.STATUS === 'Deviasi').length;
+    const countUnrec = records.filter((r) => r.STATUS === 'Belum Direkonsiliasi').length;
     const totalNominalSelisih = records.reduce((acc, r) => acc + Math.abs(r.SELISIH), 0);
     const totalRows = records.length || 1;
     const matchRate = (countMatch / totalRows) * 100;
 
     return {
-      totalChargeMc,
       totalMc,
       countMatch,
       countDeviasi,
+      countUnrec,
       totalNominalSelisih,
       matchRate,
       totalRows,
     };
   }, [records]);
 
-  // 2. Clustered Column: Total Mandiri vs Total Mastercard per Service Kategori
+  // Top Category deviation in Mastercard
+  const topMcCategory = useMemo(() => {
+    let topCat = 'Interchange';
+    let topVal = 0;
+    STANDARD_CATEGORIES.forEach((cat) => {
+      const val = records
+        .filter((r) => r['SERVICE KATEGORI'] === cat)
+        .reduce((acc, r) => acc + Math.abs(r.SELISIH), 0);
+      if (val > topVal) {
+        topVal = val;
+        topCat = cat;
+      }
+    });
+    return { topCat, topVal };
+  }, [records]);
+
+  // 2. Supporting Visual: Clustered Column per 4 Categories (Mandiri vs Mastercard in IDR)
   const clusteredCategoryData = useMemo((): GenericClusteredItem[] => {
-    return SERVICE_KATEGORI_MASTERCARD.map((kat) => {
+    const items = STANDARD_CATEGORIES.map((kat) => {
       const katRecords = records.filter((r) => r['SERVICE KATEGORI'] === kat);
       const valMandiri = katRecords.reduce((acc, r) => acc + r['TOTAL MANDIRI'], 0);
       const valMc = katRecords.reduce((acc, r) => acc + r['TOTAL MASTERCARD'], 0);
@@ -72,177 +88,179 @@ export const MastercardScreen: React.FC<MastercardScreenProps> = ({
         val2: valMc,
       };
     });
+
+    return items.sort((a, b) => (b.val1 + b.val2) - (a.val1 + a.val2));
   }, [records]);
 
-  // 3. Line Chart: Tren Selisih per Bulan
-  const lineChartData = useMemo((): LineChartPoint[] => {
-    const dataSource = filters.periode === 'Semua' ? records : allRecords;
+  // 3. Main Visual: Line Chart: Tren Selisih per Minggu (W01 - W43 2026 atau sesuai Bulan)
+  const targetWeeks = useMemo(() => {
+    if (isMonthFiltered) {
+      return WEEKS.filter((w) => w.month === filters.bulan);
+    }
+    return WEEKS;
+  }, [isMonthFiltered, filters.bulan]);
 
-    return PERIODS.map((period) => {
-      const pRecords = dataSource.filter((r) => r.PERIODE === period);
-      const selisih = pRecords.reduce((acc, r) => acc + Math.abs(r.SELISIH), 0);
+  const lineChartData = useMemo((): LineChartPoint[] => {
+    return targetWeeks.map((w) => {
+      const wRecords = allRecords.filter((r) => r.Minggu === w.weekCode);
+      const selisih = wRecords.reduce((acc, r) => acc + Math.abs(r.SELISIH), 0);
 
       return {
-        period,
+        period: `${w.weekCode} (${w.startDate})`,
         singleValue: selisih,
       };
     });
-  }, [records, allRecords, filters.periode]);
+  }, [targetWeeks, allRecords]);
 
-  // 4. Bar Chart: Penyebab Selisih (Qty, Rate, Tax)
-  const causesData = useMemo((): CauseItem[] => {
-    const totalQtyDiff = records.reduce((acc, r) => acc + (r.penyebabQty || 0), 0);
-    const totalRateDiff = records.reduce((acc, r) => acc + (r.penyebabRate || 0), 0);
-    const totalTaxDiff = records.reduce((acc, r) => acc + (r.penyebabTax || 0), 0);
-
+  // 4. Supporting Visual: Donut: Komposisi Status Rekonsiliasi Mastercard
+  const donutStatusData: DonutSlice[] = useMemo(() => {
     return [
       {
-        id: 'qty',
-        name: 'Selisih Volume (Qty)',
-        nominal: totalQtyDiff,
-        color: '#0078D4',
-        keterangan: 'Perbedaan hitungan jumlah transaksi Mandiri vs Mastercard',
+        label: 'Sesuai',
+        value: kpis.countMatch,
+        color: '#1E8E5A', // Green reserved for Sesuai
       },
       {
-        id: 'rate',
-        name: 'Selisih Tarif (Rate)',
-        nominal: totalRateDiff,
-        color: '#EB001B',
-        keterangan: 'Perbedaan tier rate atau rate per event fee',
+        label: 'Ada Selisih',
+        value: kpis.countDeviasi,
+        color: '#C62828', // Red reserved for Ada Selisih
       },
       {
-        id: 'tax',
-        name: 'Selisih Pajak (Tax)',
-        nominal: totalTaxDiff,
-        color: '#F79E1B',
-        keterangan: 'Selisih pembulatan tarif PPN (11%) pada billing',
+        label: 'Belum Dicek',
+        value: kpis.countUnrec,
+        color: '#8A93A0', // Grey reserved for Belum Dicek
       },
     ];
+  }, [kpis]);
+
+  // 5. Perlu Perhatian List: Top 5 Mastercard Deviations with Drill-through
+  const topDeviations = useMemo((): PerluPerhatianItem[] => {
+    return records
+      .filter((r) => r.STATUS === 'Deviasi')
+      .sort((a, b) => Math.abs(b.SELISIH) - Math.abs(a.SELISIH))
+      .slice(0, 5)
+      .map((r, idx) => ({
+        id: `${r['EVENT ID']}-${r.NO}`,
+        rank: idx + 1,
+        kategori: r['SERVICE KATEGORI'],
+        subDeskripsi: `${r.DESC} · Event ID: ${r['EVENT ID']}`,
+        periode: r.Minggu,
+        selisihIdr: r.SELISIH,
+        status: r.STATUS,
+        principal: 'Mastercard',
+        rawRecord: r,
+      }));
   }, [records]);
 
   return (
-    <div className="space-y-3">
-      {/* Banner */}
-      <div className="bg-[#EB001B] text-white px-4 py-2 rounded-[2px] flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center -space-x-1">
-            <span className="w-4 h-4 rounded-full bg-[#EB001B] border border-white" />
-            <span className="w-4 h-4 rounded-full bg-[#F79E1B] border border-white opacity-90" />
-          </div>
-          <div>
-            <h2 className="text-[13px] font-bold leading-tight">
-              Rekonsiliasi Billing Mastercard (IDR)
-            </h2>
-            <p className="text-[10px] text-red-100">
-              Evaluasi komparasi tagihan QTY, RATE, CHARGE, dan TAX pembukuan Mandiri vs Mastercard
-            </p>
-          </div>
-        </div>
-        <div className="text-right text-[11px] font-medium hidden sm:block">
-          <span className="text-red-100">Aksen:</span> Merah &amp; Oranye (#EB001B / #F79E1B)
-        </div>
-      </div>
-
-      {/* Data Process Strip */}
-      <PbiProcessStrip
-        steps={pipelineSteps}
-        onRefresh={onRefreshPipeline}
-        isRefreshing={isRefreshingPipeline}
+    <div className="space-y-3.5">
+      {/* 1. Kesimpulan Banner (Answer First - 5-Second Rule) */}
+      <PbiKesimpulanBanner
+        periodLabel={isMonthFiltered ? `Mastercard · ${filters.bulan}` : 'Mastercard · Jan - Okt 2026'}
+        totalRows={kpis.totalRows}
+        countSesuai={kpis.countMatch}
+        countSelisih={kpis.countDeviasi}
+        countBelumDicek={kpis.countUnrec}
+        totalNominalSelisihIdr={kpis.totalNominalSelisih}
+        matchRate={kpis.matchRate}
+        highlightCategory={topMcCategory.topCat}
+        principalName="Mastercard"
       />
 
-      {/* 5 KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* 2. Simplified 4-Step Process Strip */}
+      <PbiProcessStrip />
+
+      {/* 3. 4 KPI Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* KPI 1: Total Billing */}
         <PbiKpiCard
-          title="Total Charge Mastercard"
-          value={formatCompactRupiah(kpis.totalChargeMc)}
-          subtext={`Total Bill: ${formatCompactRupiah(kpis.totalMc)}`}
-          trendText="Sebelum Pajak"
-          trendType="neutral"
-          accentColor="#EB001B"
+          title="Total Tagihan Mastercard"
+          plainExplanation="Total nilai tagihan resmi mingguan yang ditagihkan Mastercard"
+          value={formatCompactRupiah(kpis.totalMc)}
+          subtext={`${formatNumber(kpis.totalRows)} transaksi mingguan`}
+          comparisonText="Mata Uang IDR"
+          comparisonDirection="flat"
+          accentColor="#E8832A"
+          caraMembaca="Total tagihan fee resmi dari Mastercard dalam mata uang Rupiah atas batch mingguan."
           onFocus={() =>
             onOpenFocus(
-              'Total Charge Mastercard',
-              <div className="p-4 text-center">
-                <span className="text-4xl font-bold text-[#EB001B] font-mono">
-                  {formatRupiah(kpis.totalChargeMc)}
+              'Total Tagihan Mastercard',
+              <div className="p-5 text-center">
+                <span className="text-4xl font-bold text-[#E8832A] font-mono">
+                  {formatRupiah(kpis.totalMc)}
                 </span>
-                <p className="text-xs text-[#605E5C] mt-2">
-                  Total nominal CHARGE MASTERCARD yang ditagihkan sebelum komponen TAX (PPN).
+                <p className="text-xs text-[#6B7280] mt-2">
+                  Total tagihan invoice fee Mastercard yang ditagihkan melalui ICA resmi.
                 </p>
               </div>
             )
           }
         />
 
+        {/* KPI 2: Jumlah Baris Sesuai */}
         <PbiKpiCard
-          title="Jumlah Baris Match"
+          title="Jumlah Sesuai"
+          plainExplanation="Baris tagihan Mastercard yang nominalnya cocok dengan hitungan internal"
           value={formatNumber(kpis.countMatch)}
-          subtext="Item Tagihan Sesuai"
-          trendText="Sesuai Toleransi (0)"
-          trendType="positive"
-          accentColor="#107C41"
+          subtext="Item billing tervalidasi"
+          comparisonText="Sesuai Toleransi"
+          comparisonDirection="flat"
+          accentColor="#1E8E5A"
+          caraMembaca="Jumlah baris billing mingguan Mastercard yang terverifikasi sama persis dengan perhitungan internal Mandiri."
           onFocus={() =>
             onOpenFocus(
-              'Jumlah Baris Match',
-              <div className="p-4 text-center">
-                <span className="text-4xl font-bold text-[#107C41] font-mono">
-                  {formatNumber(kpis.countMatch)}
+              'Baris Sesuai Mastercard',
+              <div className="p-5 text-center">
+                <span className="text-4xl font-bold text-[#1E8E5A] font-mono">
+                  {formatNumber(kpis.countMatch)} Baris
                 </span>
               </div>
             )
           }
         />
 
+        {/* KPI 3: Jumlah Ada Selisih */}
         <PbiKpiCard
-          title="Jumlah Baris Deviasi"
+          title="Ada Selisih"
+          plainExplanation="Baris tagihan Mastercard yang nominalnya berbeda dengan perhitungan BMRI"
           value={formatNumber(kpis.countDeviasi)}
-          subtext="Perlu Verifikasi"
-          trendText={`${formatPercentage((kpis.countDeviasi / kpis.totalRows) * 100)} deviasi`}
-          trendType="negative"
-          accentColor="#EB001B"
+          subtext={`Total selisih ${formatCompactRupiah(kpis.totalNominalSelisih)}`}
+          comparisonText="Perlu Investigasi"
+          comparisonDirection="up"
+          isDeviationMetric={true}
+          accentColor="#C62828"
+          caraMembaca="Jumlah item tagihan mingguan yang memiliki perbedaan nominal volume, tarif, atau PPN."
           onFocus={() =>
             onOpenFocus(
-              'Jumlah Baris Deviasi',
-              <div className="p-4 text-center">
-                <span className="text-4xl font-bold text-[#EB001B] font-mono">
-                  {formatNumber(kpis.countDeviasi)}
+              'Baris Ada Selisih Mastercard',
+              <div className="p-5 text-center">
+                <span className="text-4xl font-bold text-[#C62828] font-mono">
+                  {formatNumber(kpis.countDeviasi)} Baris
                 </span>
+                <p className="text-xs text-[#6B7280] mt-2">
+                  Total deviasi: {formatRupiah(kpis.totalNominalSelisih)}
+                </p>
               </div>
             )
           }
         />
 
+        {/* KPI 4: Persentase Sesuai */}
         <PbiKpiCard
-          title="Total Nominal Selisih"
-          value={formatCompactRupiah(kpis.totalNominalSelisih)}
-          subtext="Absolut Selisih"
-          trendText="TOTAL MC - MANDIRI"
-          trendType="negative"
-          accentColor="#EB001B"
-          onFocus={() =>
-            onOpenFocus(
-              'Total Nominal Selisih',
-              <div className="p-4 text-center">
-                <span className="text-4xl font-bold text-[#EB001B] font-mono">
-                  {formatRupiah(kpis.totalNominalSelisih)}
-                </span>
-              </div>
-            )
-          }
-        />
-
-        <PbiKpiCard
-          title="% Match"
+          title="Persentase Sesuai"
+          plainExplanation="Tingkat kesesuaian nilai invoice Mastercard terhadap hitungan Mandiri"
           value={formatPercentage(kpis.matchRate)}
-          subtext="Tingkat Keselarasan"
-          trendText="Target: ≥85%"
-          trendType="positive"
-          accentColor="#107C41"
+          subtext={kpis.matchRate >= 85 ? 'Kondisi sehat' : 'Di bawah batas nyaman'}
+          comparisonText={kpis.matchRate >= 85 ? 'Memenuhi Standar' : 'Perlu Perhatian'}
+          comparisonDirection={kpis.matchRate >= 85 ? 'up' : 'down'}
+          isDeviationMetric={false}
+          accentColor={kpis.matchRate >= 85 ? '#1E8E5A' : '#F5A800'}
+          caraMembaca="Rasio baris sesuai terhadap total baris penagihan Mastercard. Target acuan minimal 85%."
           onFocus={() =>
             onOpenFocus(
-              '% Match',
-              <div className="p-4 text-center">
-                <span className="text-4xl font-bold text-[#107C41] font-mono">
+              'Persentase Sesuai Mastercard',
+              <div className="p-5 text-center">
+                <span className="text-4xl font-bold text-[#E8832A] font-mono">
                   {formatPercentage(kpis.matchRate)}
                 </span>
               </div>
@@ -251,102 +269,124 @@ export const MastercardScreen: React.FC<MastercardScreenProps> = ({
         />
       </div>
 
-      {/* 3 Visuals Row */}
+      {/* 4. Visual Row: Main Weekly Trend (7 cols) + Supporting Clustered (3 cols) + Supporting Donut (2 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
-        {/* Visual 1: Clustered Column: Total Mandiri vs Total Mastercard per Service Kategori */}
-        <div className="lg:col-span-5 flex flex-col">
-          <PbiClusteredColumnChart
-            title="Total Mandiri vs Total Mastercard per Service Kategori"
-            subtitle="Perbandingan Nilai Buku Mandiri vs Tagihan Mastercard"
-            data={clusteredCategoryData}
-            series1Name="Total Mandiri"
-            series1Color="#0078D4"
-            series2Name="Total Mastercard"
-            series2Color="#EB001B"
-            currency="IDR"
-            onFocus={() =>
-              onOpenFocus(
-                'Total Mandiri vs Total Mastercard per Service Kategori',
-                <PbiClusteredColumnChart
-                  title="Total Mandiri vs Total Mastercard per Service Kategori"
-                  data={clusteredCategoryData}
-                  series1Name="Total Mandiri"
-                  series1Color="#0078D4"
-                  series2Name="Total Mastercard"
-                  series2Color="#EB001B"
-                  currency="IDR"
-                  className="w-full h-full border-0 shadow-none"
-                />
-              )
-            }
-            onExportCsv={() => onExportCsv('Mandiri_vs_Mastercard_Kategori')}
-            className="h-full"
-          />
-        </div>
-
-        {/* Visual 2: Line Chart: Tren Selisih per Bulan */}
-        <div className="lg:col-span-4 flex flex-col">
+        {/* Visual 1: Main Story Line Chart (7 cols) */}
+        <div className="lg:col-span-7 flex flex-col">
           <PbiLineChart
-            title="Tren Selisih per Bulan (Mastercard)"
-            subtitle="Nominal Deviasi Bulanan (Jan - Okt 2026)"
+            title={
+              isMonthFiltered
+                ? `Tren Deviasi Mingguan Bulan ${filters.bulan}`
+                : 'Tren Nominal Selisih per Minggu (W01 - W43 2026)'
+            }
+            subtitle={
+              isMonthFiltered
+                ? `Pergerakan deviasi per minggu siklus penagihan ${filters.bulan} (Rp)`
+                : 'Pergerakan deviasi nominal mingguan Mastercard sepanjang tahun 2026 (Rp)'
+            }
+            caraMembaca="Grafik garis memperlihatkan lonjakan selisih nominal per minggu pelaporan Mastercard."
             data={lineChartData}
             mode="mc-only"
             onFocus={() =>
               onOpenFocus(
-                'Tren Selisih per Bulan',
+                'Tren Selisih Mingguan Mastercard',
                 <PbiLineChart
-                  title="Tren Selisih per Bulan (Mastercard)"
+                  title={
+                    isMonthFiltered
+                      ? `Tren Deviasi Mingguan Bulan ${filters.bulan}`
+                      : 'Tren Nominal Selisih per Minggu (W01 - W43 2026)'
+                  }
                   data={lineChartData}
                   mode="mc-only"
                   className="w-full h-full border-0 shadow-none"
                 />
               )
             }
-            onExportCsv={() => onExportCsv('Tren_Selisih_Bulan_MC')}
-            className="h-full"
+            onExportCsv={() => onExportCsv('Mastercard_Tren_Mingguan')}
+            className="h-full min-h-[290px]"
           />
         </div>
 
-        {/* Visual 3: Bar Chart: Penyebab Selisih (Qty, Rate, Tax) */}
+        {/* Visual 2: Clustered Column per Service Kategori (3 cols) */}
         <div className="lg:col-span-3 flex flex-col">
-          <PbiPenyebabSelisihChart
-            title="Penyebab Selisih (Qty, Rate, Tax)"
-            subtitle="Dekomposisi asal mula deviasi tagihan"
-            causes={causesData}
+          <PbiClusteredColumnChart
+            title={
+              isMonthFiltered
+                ? `Total Fee per Kategori (${filters.bulan})`
+                : 'Total Tagihan per Kategori Layanan'
+            }
+            subtitle="Assessment, Authorization, Interchange, Settlement (Rp)"
+            caraMembaca="Membandingkan total perhitungan Mandiri (navy) vs tagihan Mastercard (oranye) per kategori."
+            data={clusteredCategoryData}
+            series1Name="Hitungan BMRI"
+            series1Color="#003A70"
+            series2Name="Tagihan MC"
+            series2Color="#E8832A"
+            currency="IDR"
             onFocus={() =>
               onOpenFocus(
-                'Penyebab Selisih (Qty, Rate, Tax)',
-                <PbiPenyebabSelisihChart
-                  title="Penyebab Selisih (Qty, Rate, Tax)"
-                  causes={causesData}
+                'Komparasi Total per Kategori Mastercard',
+                <PbiClusteredColumnChart
+                  title="Total Tagihan per Kategori Layanan"
+                  data={clusteredCategoryData}
+                  series1Name="Hitungan BMRI"
+                  series1Color="#003A70"
+                  series2Name="Tagihan MC"
+                  series2Color="#E8832A"
+                  currency="IDR"
                   className="w-full h-full border-0 shadow-none"
                 />
               )
             }
-            onExportCsv={() => onExportCsv('Penyebab_Selisih_MC')}
+            onExportCsv={() => onExportCsv('Mastercard_Mandiri_vs_MC_Kategori')}
+            className="h-full"
+          />
+        </div>
+
+        {/* Visual 3: Donut: Komposisi Status Tagihan Mastercard (2 cols) */}
+        <div className="lg:col-span-2 flex flex-col">
+          <PbiDonutChart
+            title="Komposisi Status Tagihan"
+            subtitle="Porsi Sesuai, Ada Selisih, Belum Dicek"
+            caraMembaca="Porsi baris tagihan yang sudah sesuai vs yang masih memiliki perbedaan nominal."
+            data={donutStatusData}
+            centerLabel="Total Baris"
+            centerValue={formatNumber(kpis.totalRows)}
+            onFocus={() =>
+              onOpenFocus(
+                'Komposisi Status Mastercard',
+                <PbiDonutChart
+                  title="Komposisi Status Tagihan"
+                  data={donutStatusData}
+                  centerLabel="Total Baris"
+                  centerValue={formatNumber(kpis.totalRows)}
+                  className="w-full h-full border-0 shadow-none"
+                />
+              )
+            }
+            onExportCsv={() => onExportCsv('Mastercard_Status_Donut')}
             className="h-full"
           />
         </div>
       </div>
 
-      {/* Table: Matrix with KEY columns only */}
-      <PbiMastercardKeyTable
-        title="Daftar Rekonsiliasi Mastercard (Kolom Kunci)"
-        subtitle="Klik baris mana pun untuk melihat seluruh 20 kolom audit trail"
-        records={records}
-        onSelectRecord={onSelectRecord}
+      {/* 5. Perlu Perhatian List: Top 5 Mastercard Deviasi with Drill-through */}
+      <PbiPerluPerhatianTable
+        items={topDeviations}
+        title="Perlu Perhatian: 5 Deviasi Terbesar Mastercard"
+        subtitle={`Transaksi mingguan dengan nominal selisih tertinggi (${filters.bulan})`}
+        onDrillThrough={(item) => onDrillThroughItem && onDrillThroughItem(item)}
         onFocus={() =>
           onOpenFocus(
-            'Daftar Rekonsiliasi Mastercard (Kolom Kunci)',
-            <PbiMastercardKeyTable
-              title="Daftar Rekonsiliasi Mastercard (Kolom Kunci)"
-              records={records}
-              onSelectRecord={onSelectRecord}
+            'Perlu Perhatian: 5 Deviasi Terbesar Mastercard',
+            <PbiPerluPerhatianTable
+              items={topDeviations}
+              onDrillThrough={(item) => onDrillThroughItem && onDrillThroughItem(item)}
               className="w-full h-full border-0 shadow-none"
             />
           )
         }
-        onExportCsv={() => onExportCsv('Mastercard_Key_Columns')}
+        onExportCsv={() => onExportCsv('Mastercard_Top5_Deviasi')}
       />
     </div>
   );

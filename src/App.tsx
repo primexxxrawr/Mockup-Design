@@ -25,16 +25,21 @@ import { DetailDeviasiScreen } from './components/screens/DetailDeviasiScreen';
 import { FocusVisualModal } from './components/modals/FocusVisualModal';
 import { DetailDrillModal } from './components/modals/DetailDrillModal';
 import { ImportDataModal } from './components/modals/ImportDataModal';
+import { PbiTermsGuideModal } from './components/pbi/PbiTermsGuideModal';
+import { PbiFooter } from './components/pbi/PbiFooter';
+import { PerluPerhatianItem } from './components/pbi/PbiPerluPerhatianTable';
 import { ParseResult } from './utils/fileParser';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<ScreenTab>('Ringkasan');
+  const [isTermsGuideOpen, setIsTermsGuideOpen] = useState(false);
   const [viewportMode, setViewportMode] = useState<ViewportMode>('fit-width');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Mastercard Slicers State
   const [mcFilters, setMcFilters] = useState<MastercardFilterState>({
-    periode: 'Semua',
+    minggu: 'Semua',
+    bulan: 'Semua',
     serviceKategori: 'Semua',
     tierEvent: 'Semua',
     bySvByQty: 'Semua',
@@ -120,7 +125,8 @@ export default function App() {
     return mastercardData.filter((r) => {
       // If on Mastercard tab, use mcFilters
       if (currentTab === 'Mastercard') {
-        if (mcFilters.periode !== 'Semua' && r.PERIODE !== mcFilters.periode) return false;
+        if (mcFilters.minggu !== 'Semua' && r.Minggu !== mcFilters.minggu) return false;
+        if (mcFilters.bulan !== 'Semua' && r.Bulan !== mcFilters.bulan) return false;
         if (mcFilters.serviceKategori !== 'Semua' && r['SERVICE KATEGORI'] !== mcFilters.serviceKategori) return false;
         if (mcFilters.tierEvent !== 'Semua' && r['TIER EVENT'] !== mcFilters.tierEvent) return false;
         if (mcFilters.bySvByQty !== 'Semua' && r['BY SV / BY QTY'] !== mcFilters.bySvByQty) return false;
@@ -131,27 +137,29 @@ export default function App() {
           return (
             r['EVENT ID'].toLowerCase().includes(q) ||
             r.DESC.toLowerCase().includes(q) ||
-            r['SERVICE KATEGORI'].toLowerCase().includes(q)
+            r['SERVICE KATEGORI'].toLowerCase().includes(q) ||
+            r.Minggu.toLowerCase().includes(q)
           );
         }
         return true;
       }
 
       // If on Ringkasan or Detail tab, use overviewFilters
-      if (overviewFilters.periode !== 'Semua' && r.PERIODE !== overviewFilters.periode) return false;
+      if (overviewFilters.periode !== 'Semua' && r.Bulan !== overviewFilters.periode) return false;
       if (overviewFilters.status !== 'Semua' && r.STATUS !== overviewFilters.status) return false;
       if (overviewFilters.searchQuery) {
         const q = overviewFilters.searchQuery.toLowerCase();
         return (
           r['EVENT ID'].toLowerCase().includes(q) ||
           r.DESC.toLowerCase().includes(q) ||
-          r['SERVICE KATEGORI'].toLowerCase().includes(q)
+          r['SERVICE KATEGORI'].toLowerCase().includes(q) ||
+          r.Minggu.toLowerCase().includes(q)
         );
       }
 
       return true;
     });
-  }, [currentTab, mcFilters, overviewFilters]);
+  }, [currentTab, mastercardData, mcFilters, overviewFilters]);
 
   // Filter Visa Records
   const filteredVisaRecords = useMemo(() => {
@@ -242,6 +250,8 @@ export default function App() {
       headers = [
         'NO',
         'TANGGAL',
+        'MINGGU',
+        'BULAN',
         'EVENT ID',
         'TIER EVENT',
         'DESC',
@@ -265,6 +275,8 @@ export default function App() {
       rows = filteredMastercardRecords.map((r) => [
         r.NO,
         r.TANGGAL,
+        r.Minggu,
+        r.Bulan,
         r['EVENT ID'],
         `"${r['TIER EVENT']}"`,
         `"${r.DESC}"`,
@@ -309,7 +321,8 @@ export default function App() {
         'Total',
         'Jumlah Units BMRI',
         'Total Fee BMRI',
-        'Selisih',
+        'Selisih (Tagihan)',
+        'Selisih (Rp)',
         'Persentase Selisih',
         'STATUS',
       ];
@@ -337,6 +350,7 @@ export default function App() {
         r['Jumlah Units BMRI'],
         r['Total Fee BMRI'],
         r.Selisih,
+        r.selisihIdr,
         r['Persentase Selisih'],
         r.STATUS,
       ]);
@@ -367,19 +381,14 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F3F2F1] flex flex-col font-sans select-text">
+    <div className="min-h-screen bg-[#F4F6F9] flex flex-col font-sans select-text">
       {/* Power BI Header & Top Page Tabs */}
       <PbiHeaderRibbon
         currentTab={currentTab}
         onTabChange={(tab) => setCurrentTab(tab)}
-        viewportMode={viewportMode}
-        onViewportChange={setViewportMode}
-        onRefreshData={handleRefreshPipeline}
-        isRefreshing={isRefreshingPipeline}
-        onExportAllCsv={handleExportAllCsv}
+        onOpenTermsGuide={() => setIsTermsGuideOpen(true)}
         onOpenImportModal={() => setIsImportModalOpen(true)}
-        onToggleFullscreen={handleToggleFullscreen}
-        isFullscreen={isFullscreen}
+        onExportAllCsv={handleExportAllCsv}
       />
 
       {/* Screen-Specific Slicers Bar */}
@@ -389,7 +398,8 @@ export default function App() {
           onChange={setMcFilters}
           onReset={() =>
             setMcFilters({
-              periode: 'Semua',
+              minggu: 'Semua',
+              bulan: 'Semua',
               serviceKategori: 'Semua',
               tierEvent: 'Semua',
               bySvByQty: 'Semua',
@@ -449,16 +459,8 @@ export default function App() {
         />
       )}
 
-      {/* Main Canvas Viewport Container (16:9 Aspect Ratio) */}
-      <main
-        className={`flex-1 p-3 sm:p-4 transition-all duration-200 ${
-          viewportMode === 'fit-page'
-            ? 'max-w-[1920px] mx-auto w-full aspect-[16/9]'
-            : viewportMode === 'native-1080'
-            ? 'w-[1920px] max-w-none overflow-x-auto mx-auto shadow-lg'
-            : 'w-full'
-        }`}
-      >
+      {/* Main Canvas Viewport Container */}
+      <main className="flex-1 p-3 sm:p-5 max-w-[1920px] mx-auto w-full">
         {/* Render Tab Screens */}
         {currentTab === 'Ringkasan' && (
           <OverviewScreen
@@ -468,10 +470,15 @@ export default function App() {
             allVisa={visaData}
             filters={overviewFilters}
             pipelineSteps={pipelineSteps}
-            onRefreshPipeline={handleRefreshPipeline}
-            isRefreshingPipeline={isRefreshingPipeline}
             onOpenFocus={handleOpenFocus}
             onExportCsv={handleExportAllCsv}
+            onDrillThroughItem={(item) => {
+              setCurrentTab('Detail Deviasi');
+              const q = item.principal === 'Visa'
+                ? (item.rawRecord?.['Invoice ID'] || item.id)
+                : (item.rawRecord?.['EVENT ID'] || item.id);
+              setOverviewFilters((prev) => ({ ...prev, searchQuery: q }));
+            }}
           />
         )}
 
@@ -481,13 +488,16 @@ export default function App() {
             allRecords={mastercardData}
             filters={mcFilters}
             pipelineSteps={pipelineSteps}
-            onRefreshPipeline={handleRefreshPipeline}
-            isRefreshingPipeline={isRefreshingPipeline}
             onSelectRecord={(rec) =>
               setSelectedRecord({ record: rec, type: 'Mastercard' })
             }
             onOpenFocus={handleOpenFocus}
             onExportCsv={handleExportAllCsv}
+            onDrillThroughItem={(item) => {
+              setCurrentTab('Detail Deviasi');
+              const q = item.rawRecord?.['EVENT ID'] || item.id;
+              setOverviewFilters((prev) => ({ ...prev, searchQuery: q }));
+            }}
           />
         )}
 
@@ -497,13 +507,16 @@ export default function App() {
             allRecords={visaData}
             filters={visaFilters}
             pipelineSteps={pipelineSteps}
-            onRefreshPipeline={handleRefreshPipeline}
-            isRefreshingPipeline={isRefreshingPipeline}
             onSelectRecord={(rec) =>
               setSelectedRecord({ record: rec, type: 'Visa' })
             }
             onOpenFocus={handleOpenFocus}
             onExportCsv={handleExportAllCsv}
+            onDrillThroughItem={(item) => {
+              setCurrentTab('Detail Deviasi');
+              const q = item.rawRecord?.['Invoice ID'] || item.id;
+              setOverviewFilters((prev) => ({ ...prev, searchQuery: q }));
+            }}
           />
         )}
 
@@ -523,25 +536,14 @@ export default function App() {
         )}
       </main>
 
-      {/* Power BI Report Bottom Status Bar without fictional claims */}
-      <footer className="bg-white border-t border-[#E1DFDD] px-4 py-1.5 flex items-center justify-between text-[10px] text-[#605E5C] select-none">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#107C41]" />
-            <span>Koneksi Data: <strong>Mockup - data dummy</strong></span>
-          </div>
-          <span className="text-[#C8C6C4]">|</span>
-          <span>Halaman Aktif: <strong>{currentTab}</strong></span>
-          <span className="text-[#C8C6C4]">|</span>
-          <span>Visual: <strong>Standard Power BI Visuals</strong></span>
-        </div>
+      {/* Enterprise Power BI Footer */}
+      <PbiFooter />
 
-        <div className="flex items-center gap-3">
-          <span>Resolusi Desain: <strong>1920x1080 (16:9 Canvas)</strong></span>
-          <span className="text-[#C8C6C4]">|</span>
-          <span className="text-[#8A8886]">Bank Mandiri Reconciler © 2026</span>
-        </div>
-      </footer>
+      {/* Panduan Istilah (Terms Glossary Bookmark Overlay) */}
+      <PbiTermsGuideModal
+        isOpen={isTermsGuideOpen}
+        onClose={() => setIsTermsGuideOpen(false)}
+      />
 
       {/* Focus Modal */}
       <FocusVisualModal

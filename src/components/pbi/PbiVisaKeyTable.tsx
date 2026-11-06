@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { PbiVisualHeader } from './PbiVisualHeader';
 import { VisaRecord, DeviationStatus } from '../../types';
-import { formatNumber, formatPercentage, formatCurrencyVal } from '../../data/mockData';
+import { formatNumber, formatPercentage, formatCurrencyVal, formatRupiah } from '../../data/mockData';
 import { ArrowUpDown, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 
 interface PbiVisaKeyTableProps {
@@ -24,6 +24,7 @@ type SortField =
   | 'Total'
   | 'Total Fee BMRI'
   | 'Selisih'
+  | 'selisihIdr'
   | 'Persentase Selisih';
 
 export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
@@ -35,7 +36,7 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
   onExportCsv,
   className = '',
 }) => {
-  const [sortField, setSortField] = useState<SortField>('Selisih');
+  const [sortField, setSortField] = useState<SortField>('selisihIdr');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -54,9 +55,9 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
       let aVal = a[sortField];
       let bVal = b[sortField];
 
-      if (sortField === 'Selisih') {
-        aVal = Math.abs(a.Selisih);
-        bVal = Math.abs(b.Selisih);
+      if (sortField === 'selisihIdr' || sortField === 'Selisih') {
+        aVal = Math.abs(Number(aVal) || 0);
+        bVal = Math.abs(Number(bVal) || 0);
       }
 
       if (typeof aVal === 'string' && typeof bVal === 'string') {
@@ -72,20 +73,21 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
   const totalPages = Math.ceil(sortedRecords.length / pageSize) || 1;
   const currentRecords = sortedRecords.slice((page - 1) * pageSize, page * pageSize);
 
-  // Totals calculations
+  // Totals calculations (USD-equivalent Total and Fee BMRI, Selisih in Rp)
   const totals = useMemo(() => {
     const totalUnits = records.reduce((acc, r) => acc + r.Units, 0);
     const totalUnitsBmri = records.reduce((acc, r) => acc + r['Jumlah Units BMRI'], 0);
-    const totalVisa = records.reduce((acc, r) => acc + r.Total, 0);
-    const totalBmri = records.reduce((acc, r) => acc + r['Total Fee BMRI'], 0);
-    const totalSelisih = records.reduce((acc, r) => acc + r.Selisih, 0);
-    const avgPct = totalBmri > 0 ? (totalSelisih / totalBmri) * 100 : 0;
+    const totalVisaUsd = records.reduce((acc, r) => acc + r.totalUsd, 0);
+    const totalBmriUsd = records.reduce((acc, r) => acc + r.totalFeeBmriUsd, 0);
+    const totalSelisihIdr = records.reduce((acc, r) => acc + r.selisihIdr, 0);
+    const avgPct = totalBmriUsd > 0 ? ((totalVisaUsd - totalBmriUsd) / totalBmriUsd) * 100 : 0;
+
     return {
       totalUnits,
       totalUnitsBmri,
-      totalVisa,
-      totalBmri,
-      totalSelisih,
+      totalVisaUsd,
+      totalBmriUsd,
+      totalSelisihIdr,
       avgPct,
       count: records.length,
     };
@@ -105,7 +107,8 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
       'Jumlah Units BMRI',
       'Total',
       'Total Fee BMRI',
-      'Selisih',
+      'Selisih (Tagihan)',
+      'Selisih (Rp)',
       'Persentase Selisih',
       'STATUS',
     ];
@@ -119,6 +122,7 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
       r.Total,
       r['Total Fee BMRI'],
       r.Selisih,
+      r.selisihIdr,
       r['Persentase Selisih'],
       r.STATUS,
     ]);
@@ -183,7 +187,7 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
           >
             Prev
           </button>
-          <span className="text-[10px] tabular-nums">
+          <span className="text-[10px] tabular-nums font-mono">
             {page} / {totalPages}
           </span>
           <button
@@ -255,7 +259,7 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
                 onClick={() => handleSort('Total')}
                 className="py-2 px-2.5 text-right cursor-pointer hover:bg-[#EDEBE9] whitespace-nowrap"
               >
-                Total (Visa)
+                Total
               </th>
               <th
                 onClick={() => handleSort('Total Fee BMRI')}
@@ -268,8 +272,21 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
                 className="py-2 px-2.5 text-right cursor-pointer hover:bg-[#EDEBE9] whitespace-nowrap"
               >
                 <div className="flex items-center justify-end gap-1">
-                  <span>Selisih</span>
+                  <span>Selisih (Tagihan)</span>
                   {sortField === 'Selisih' ? (
+                    sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                  ) : (
+                    <ArrowUpDown className="w-2.5 h-2.5 text-[#C8C6C4]" />
+                  )}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort('selisihIdr')}
+                className="py-2 px-2.5 text-right cursor-pointer hover:bg-[#EDEBE9] whitespace-nowrap"
+              >
+                <div className="flex items-center justify-end gap-1">
+                  <span>Selisih (Rp)</span>
+                  {sortField === 'selisihIdr' ? (
                     sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
                   ) : (
                     <ArrowUpDown className="w-2.5 h-2.5 text-[#C8C6C4]" />
@@ -288,7 +305,7 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
           </thead>
           <tbody className="divide-y divide-[#F3F2F1]">
             {currentRecords.map((r, idx) => {
-              const isDeviasi = r.STATUS === 'Deviasi' && r.Selisih !== 0;
+              const isDeviasi = r.STATUS === 'Deviasi' && r.selisihIdr !== 0;
 
               return (
                 <tr
@@ -302,7 +319,7 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
                   <td className="py-1.5 px-2.5 font-mono text-[#1A1F71] font-semibold whitespace-nowrap">
                     {r['Invoice ID']}
                   </td>
-                  <td className="py-1.5 px-2.5 text-[#323130] whitespace-nowrap">
+                  <td className="py-1.5 px-2.5 text-[#323130] whitespace-nowrap font-medium">
                     {r['Fee Category']}
                   </td>
                   <td className="py-1.5 px-2.5 text-[#605E5C] whitespace-nowrap">
@@ -320,13 +337,21 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
                   <td className="py-1.5 px-2.5 text-right font-mono tabular-nums text-[#323130]">
                     {formatCurrencyVal(r['Total Fee BMRI'], r['Billing Currency'])}
                   </td>
-                  {/* Selisih with conditional formatting */}
+                  {/* Selisih (Tagihan) */}
+                  <td
+                    className={`py-1.5 px-2.5 text-right font-mono tabular-nums ${
+                      isDeviasi ? 'text-[#D13438] font-semibold' : 'text-[#107C41]'
+                    }`}
+                  >
+                    {formatCurrencyVal(r.Selisih, r['Billing Currency'])}
+                  </td>
+                  {/* Selisih (Rp) with conditional formatting */}
                   <td
                     className={`py-1.5 px-2.5 text-right font-mono tabular-nums font-semibold ${
                       isDeviasi ? 'bg-[#FDF3F3] text-[#A80000]' : 'text-[#107C41]'
                     }`}
                   >
-                    {formatCurrencyVal(r.Selisih, r['Billing Currency'])}
+                    {formatRupiah(r.selisihIdr)}
                   </td>
                   <td
                     className={`py-1.5 px-2 text-right font-mono tabular-nums ${
@@ -347,11 +372,11 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
               );
             })}
           </tbody>
-          {/* Totals Row */}
+          {/* Totals Row: Total and Fee BMRI in USD-equivalent, Selisih in Rp */}
           <tfoot>
             <tr className="bg-[#FAF9F8] border-t-2 border-[#C8C6C4] font-semibold text-[#323130]">
               <td colSpan={4} className="py-2 px-2.5 uppercase text-[10px] tracking-wider text-[#605E5C]">
-                Total ({totals.count} baris)
+                Total ({totals.count} baris · USD-Equivalent)
               </td>
               <td className="py-2 px-2 text-right font-mono tabular-nums">
                 {formatNumber(totals.totalUnits)}
@@ -360,23 +385,26 @@ export const PbiVisaKeyTable: React.FC<PbiVisaKeyTableProps> = ({
                 {formatNumber(totals.totalUnitsBmri)}
               </td>
               <td className="py-2 px-2.5 text-right font-mono tabular-nums">
-                {formatCurrencyVal(totals.totalVisa, 'USD')}
+                {formatCurrencyVal(totals.totalVisaUsd, 'USD')}
               </td>
               <td className="py-2 px-2.5 text-right font-mono tabular-nums">
-                {formatCurrencyVal(totals.totalBmri, 'USD')}
+                {formatCurrencyVal(totals.totalBmriUsd, 'USD')}
+              </td>
+              <td className="py-2 px-2.5 text-right font-mono tabular-nums text-[#605E5C]">
+                -
               </td>
               <td
                 className={`py-2 px-2.5 text-right font-mono tabular-nums font-bold ${
-                  totals.totalSelisih !== 0 ? 'text-[#A80000] bg-[#FDF3F3]' : 'text-[#107C41]'
+                  totals.totalSelisihIdr !== 0 ? 'text-[#A80000] bg-[#FDF3F3]' : 'text-[#107C41]'
                 }`}
               >
-                {formatCurrencyVal(totals.totalSelisih, 'USD')}
+                {formatRupiah(totals.totalSelisihIdr)}
               </td>
               <td className="py-2 px-2 text-right font-mono tabular-nums">
                 {formatPercentage(totals.avgPct)}
               </td>
               <td colSpan={2} className="py-2 px-2.5 text-[10px] text-[#8A8886] font-normal">
-                Ringkasan Kolom Utama
+                Tagihan diakumulasi ke USD, Selisih dalam Rp
               </td>
             </tr>
           </tfoot>

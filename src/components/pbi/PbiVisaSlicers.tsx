@@ -1,10 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { VisaFilterState } from '../../types';
-import {
-  PERIODS,
-  FEE_CATEGORY_VISA,
-  TYPE_VISA,
-} from '../../data/mockData';
+import { VisaFilterState, STANDARD_CATEGORIES } from '../../types';
+import { PERIODS, TYPE_VISA } from '../../data/mockData';
 import { ChevronDown, RotateCcw, Filter, Check, Info } from 'lucide-react';
 
 interface PbiVisaSlicersProps {
@@ -131,7 +127,7 @@ export const PbiVisaSlicers: React.FC<PbiVisaSlicersProps> = ({
                 {filters.invoiceId === 'Semua' && <Check className="w-3 h-3 text-[#1A1F71]" />}
               </button>
               <div className="h-px bg-[#E1DFDD] my-0.5" />
-              {uniqueInvoiceIds.slice(0, 20).map((inv) => (
+              {uniqueInvoiceIds.slice(0, 25).map((inv) => (
                 <button
                   key={inv}
                   onClick={() => {
@@ -153,7 +149,7 @@ export const PbiVisaSlicers: React.FC<PbiVisaSlicersProps> = ({
         {/* 3. Current or Previous Tile Buttons */}
         <div className="flex items-center border border-[#E1DFDD] rounded-[2px] overflow-hidden bg-[#FAF9F8]">
           <span className="text-[9px] text-[#8A8886] font-semibold uppercase px-2 py-1 border-r border-[#E1DFDD] bg-[#F3F2F1]">
-            Periode Tagihan
+            Periode
           </span>
           {(['Semua', 'Current', 'Previous'] as const).map((mode) => (
             <button
@@ -169,12 +165,12 @@ export const PbiVisaSlicers: React.FC<PbiVisaSlicersProps> = ({
           ))}
         </div>
 
-        {/* 4. Fee Category Dropdown */}
+        {/* 4. Fee Category Dropdown (Exactly 4 Categories) */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setOpenDropdown(openDropdown === 'category' ? null : 'category')}
-            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[120px] text-left hover:border-[#8A8886] transition-colors ${
+            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[125px] text-left hover:border-[#8A8886] transition-colors ${
               filters.feeCategory !== 'Semua' ? 'border-[#1A1F71] bg-[#F0F2FF]' : 'border-[#E1DFDD]'
             }`}
           >
@@ -199,7 +195,7 @@ export const PbiVisaSlicers: React.FC<PbiVisaSlicersProps> = ({
                 {filters.feeCategory === 'Semua' && <Check className="w-3 h-3 text-[#1A1F71]" />}
               </button>
               <div className="h-px bg-[#E1DFDD] my-0.5" />
-              {FEE_CATEGORY_VISA.map((c) => (
+              {STANDARD_CATEGORIES.map((c) => (
                 <button
                   key={c}
                   onClick={() => {
@@ -223,7 +219,7 @@ export const PbiVisaSlicers: React.FC<PbiVisaSlicersProps> = ({
           <button
             type="button"
             onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
-            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[100px] text-left hover:border-[#8A8886] transition-colors ${
+            className={`flex items-center justify-between gap-2 px-2.5 py-1 bg-[#FAF9F8] border rounded-[2px] min-w-[95px] text-left hover:border-[#8A8886] transition-colors ${
               filters.type !== 'Semua' ? 'border-[#1A1F71] bg-[#F0F2FF]' : 'border-[#E1DFDD]'
             }`}
           >
@@ -311,7 +307,6 @@ export const PbiVisaSlicers: React.FC<PbiVisaSlicersProps> = ({
 
       {/* Right: Currency Note & Reset */}
       <div className="flex items-center gap-3">
-        {/* Mandatory Note: "Selisih dalam mata uang tagihan (asumsi)" */}
         <div className="flex items-center gap-1 text-[10px] text-[#605E5C] bg-[#FAF9F8] border border-[#E1DFDD] px-2 py-0.5 rounded-[2px]">
           <Info className="w-3 h-3 text-[#1A1F71] shrink-0" />
           <span>Selisih dalam mata uang tagihan (asumsi)</span>

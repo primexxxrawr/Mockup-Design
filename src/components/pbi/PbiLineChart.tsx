@@ -12,6 +12,7 @@ export interface LineChartPoint {
 interface PbiLineChartProps {
   title: string;
   subtitle?: string;
+  caraMembaca?: string;
   data: LineChartPoint[];
   mode?: 'dual' | 'visa-only' | 'mc-only';
   onFocus?: () => void;
@@ -22,6 +23,7 @@ interface PbiLineChartProps {
 export const PbiLineChart: React.FC<PbiLineChartProps> = ({
   title,
   subtitle,
+  caraMembaca,
   data,
   mode = 'dual',
   onFocus,
@@ -82,39 +84,40 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
 
   return (
     <div
-      className={`bg-white border border-[#E1DFDD] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] flex flex-col relative transition-all hover:border-[#C8C6C4] ${className}`}
+      className={`bg-white border border-[#E1E5EB] rounded-[2px] shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex flex-col relative transition-all hover:border-[#CBD5E1] ${className}`}
     >
       <PbiVisualHeader
         title={title}
         subtitle={subtitle}
+        caraMembaca={caraMembaca}
         onFocus={onFocus}
         onExportCsv={onExportCsv}
       />
 
       {/* Power BI Legend */}
-      <div className="flex items-center justify-end px-3 py-1 gap-4 text-[11px] text-[#605E5C] border-b border-[#F3F2F1]">
+      <div className="flex items-center justify-end px-3 py-1 gap-4 text-[11px] text-[#6B7280] border-b border-[#F4F6F9]">
         {mode === 'dual' && (
           <>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 bg-[#1A1F71] inline-block" />
-              <span>Visa Deviasi</span>
+              <span className="w-3 h-0.5 bg-[#2B6CB0] inline-block" />
+              <span>Visa (Rp)</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 bg-[#F79E1B] inline-block" />
-              <span>Mastercard Deviasi</span>
+              <span className="w-3 h-0.5 bg-[#E8832A] inline-block" />
+              <span>Mastercard (Rp)</span>
             </div>
           </>
         )}
         {mode === 'visa-only' && (
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 bg-[#1A1F71] inline-block" />
-            <span>Tren Deviasi Visa</span>
+            <span className="w-3 h-0.5 bg-[#2B6CB0] inline-block" />
+            <span>Tren Deviasi Visa (Rp)</span>
           </div>
         )}
         {mode === 'mc-only' && (
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 bg-[#EB001B] inline-block" />
-            <span>Tren Deviasi Mastercard</span>
+            <span className="w-3 h-0.5 bg-[#E8832A] inline-block" />
+            <span>Tren Deviasi Mastercard (Rp)</span>
           </div>
         )}
       </div>
@@ -171,7 +174,7 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
               <path
                 d={visaPath}
                 fill="none"
-                stroke="#1A1F71"
+                stroke="#2B6CB0"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -180,7 +183,7 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
               <path
                 d={mcPath}
                 fill="none"
-                stroke="#F79E1B"
+                stroke="#E8832A"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -192,7 +195,7 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
             <path
               d={singlePath}
               fill="none"
-              stroke="#1A1F71"
+              stroke="#2B6CB0"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -203,7 +206,7 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
             <path
               d={singlePath}
               fill="none"
-              stroke="#EB001B"
+              stroke="#E8832A"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -214,6 +217,8 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
           {data.map((d, idx) => {
             const x = paddingLeft + idx * stepX;
             const isHovered = hoveredIndex === idx;
+            const isHighDensity = data.length > 20;
+            const shouldShowLabel = !isHighDensity || idx % 4 === 0 || idx === data.length - 1;
 
             return (
               <g key={idx}>
@@ -229,17 +234,19 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
                 />
 
                 {/* X-axis Label */}
-                <text
-                  x={x}
-                  y={paddingTop + innerHeight + 15}
-                  textAnchor="middle"
-                  fontSize="8.5"
-                  fill={isHovered ? '#0078D4' : '#605E5C'}
-                  fontWeight={isHovered ? '600' : '400'}
-                  className="font-sans"
-                >
-                  {d.period.split(' ')[0]}
-                </text>
+                {shouldShowLabel && (
+                  <text
+                    x={x}
+                    y={paddingTop + innerHeight + 15}
+                    textAnchor="middle"
+                    fontSize={isHighDensity ? "8" : "8.5"}
+                    fill={isHovered ? '#0078D4' : '#605E5C'}
+                    fontWeight={isHovered ? '600' : '400'}
+                    className="font-sans"
+                  >
+                    {d.period.split(' ')[0]}
+                  </text>
+                )}
 
                 {/* Data point dots */}
                 {mode === 'dual' && (
@@ -247,16 +254,16 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
                     <circle
                       cx={x}
                       cy={getCoordinates(d.visaValue || 0, idx).y}
-                      r={isHovered ? 4.5 : 2.5}
-                      fill="#1A1F71"
+                      r={isHovered ? 4.5 : isHighDensity ? 1.5 : 2.5}
+                      fill="#2B6CB0"
                       stroke="#FFFFFF"
                       strokeWidth={1.5}
                     />
                     <circle
                       cx={x}
                       cy={getCoordinates(d.mcValue || 0, idx).y}
-                      r={isHovered ? 4.5 : 2.5}
-                      fill="#F79E1B"
+                      r={isHovered ? 4.5 : isHighDensity ? 1.5 : 2.5}
+                      fill="#E8832A"
                       stroke="#FFFFFF"
                       strokeWidth={1.5}
                     />
@@ -267,8 +274,8 @@ export const PbiLineChart: React.FC<PbiLineChartProps> = ({
                   <circle
                     cx={x}
                     cy={getCoordinates(d.singleValue || 0, idx).y}
-                    r={isHovered ? 5 : 3}
-                    fill={mode === 'visa-only' ? '#1A1F71' : '#EB001B'}
+                    r={isHovered ? 5 : isHighDensity ? 2 : 3}
+                    fill={mode === 'visa-only' ? '#2B6CB0' : '#E8832A'}
                     stroke="#FFFFFF"
                     strokeWidth={1.5}
                   />

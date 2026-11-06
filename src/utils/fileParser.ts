@@ -1,6 +1,14 @@
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
-import { MastercardRecord, VisaRecord, RECONCILIATION_TOLERANCE } from '../types';
+import {
+  MastercardRecord,
+  VisaRecord,
+  RECONCILIATION_TOLERANCE,
+  STANDARD_CATEGORIES,
+  StandardCategory,
+  idrToUsd,
+  usdToIdr,
+} from '../types';
 
 export interface ParseResult {
   mastercardRecords: MastercardRecord[];
@@ -8,6 +16,11 @@ export interface ParseResult {
   fileNames: string[];
   message: string;
 }
+
+const normalizeCategory = (val: string): StandardCategory => {
+  const match = STANDARD_CATEGORIES.find((c) => c.toLowerCase() === val.toLowerCase().trim());
+  return match || 'Assessment';
+};
 
 // Normalize column key for flexible matching
 const cleanKey = (key: string): string => {
@@ -148,7 +161,9 @@ const parseArrayBuffer = (
         const selisih = getNum(['SELISIH']) || totalMc - totalMandiri;
         const pctSelisih = totalMandiri !== 0 ? (selisih / totalMandiri) * 100 : (totalMc > 0 ? 100 : 0);
 
-        const serviceKategori = String(getVal(['SERVICE KATEGORI', 'KATEGORI', 'CATEGORY']) || 'Kategori A');
+        const serviceKategori = normalizeCategory(
+          String(getVal(['SERVICE KATEGORI', 'KATEGORI', 'CATEGORY']) || 'Assessment')
+        );
         const billableIca = String(getVal(['BILLABLE ICA', 'ICA']) || 'ICA 001');
 
         let status: MastercardRecord['STATUS'] = 'Match';
@@ -181,9 +196,13 @@ const parseArrayBuffer = (
           'PERSENTASE SELISIH': Number(pctSelisih.toFixed(2)),
           'SERVICE KATEGORI': serviceKategori,
           'BILLABLE ICA': billableIca,
+          Minggu: String(getVal(['MINGGU', 'WEEK']) || 'W01 2026'),
+          Bulan: String(getVal(['BULAN', 'MONTH', 'PERIODE']) || 'Jan 2026'),
+          selisihUsd: idrToUsd(selisih),
+          totalMandiriUsd: idrToUsd(totalMandiri),
+          totalMcUsd: idrToUsd(totalMc),
           STATUS: status,
           CATATAN: '',
-          PERIODE: 'Jan 2026',
           penyebabQty: Math.abs(qtyMc - qtyMandiri) * rateMandiri,
           penyebabRate: qtyMc * Math.abs(rateMc - rateMandiri),
           penyebabTax: Math.abs(taxMc - taxMandiri),
@@ -216,7 +235,7 @@ const parseArrayBuffer = (
         const currentOrPrev = currentOrPrevRaw.toLowerCase().includes('prev') ? 'Previous' : 'Current';
         const mapping = String(getVal(['MAPPING']) || 'Mapping 01');
         const settlementId = String(getVal(['SETTLEMENT ID', 'SETTLEMENT']) || `SETTLE-${800 + idx}`);
-        const feeCategory = String(getVal(['FEE CATEGORY', 'CATEGORY']) || 'Kategori A');
+        const feeCategory = normalizeCategory(String(getVal(['FEE CATEGORY', 'CATEGORY']) || 'Assessment'));
         const feeGroup = String(getVal(['FEE GROUP', 'GROUP']) || 'Grup 1');
         const feeName = String(getVal(['FEE NAME']) || `Fee Name ${(idx % 10) + 1}`);
         const billingLine = String(getVal(['BILLING LINE', 'LINE']) || `Line ${(idx % 20) + 1}`);
@@ -228,7 +247,9 @@ const parseArrayBuffer = (
         const rateCur = String(getVal(['RATE CUR', 'CURRENCY']) || 'USD');
         const rate = getNum(['RATE', 'TARIF']);
         const forexRate = getNum(['FOREIGN EXCHANGE RATE', 'FOREX', 'KURS']) || 16250;
-        const billingCurrency = String(getVal(['BILLING CURRENCY', 'BILLING CURR']) || 'USD');
+        const billingCurrRaw = String(getVal(['BILLING CURRENCY', 'BILLING CURR']) || 'USD').toUpperCase();
+        const billingCurrency: 'USD' | 'IDR' =
+          billingCurrRaw.includes('IDR') || billingCurrRaw.includes('RP') ? 'IDR' : 'USD';
 
         const total = getNum(['TOTAL', 'INVOICE TOTAL']) || Number((units * rate).toFixed(2));
         const unitsBmri = getNum(['JUMLAH UNITS BMRI', 'UNITS BMRI', 'QTY BMRI']);
@@ -237,10 +258,15 @@ const parseArrayBuffer = (
         const selisih = getNum(['SELISIH']) || Number((total - totalFeeBmri).toFixed(2));
         const pctSelisih = totalFeeBmri > 0 ? (selisih / totalFeeBmri) * 100 : (total > 0 ? 100 : 0);
 
+        const totalUsd = billingCurrency === 'IDR' ? total / forexRate : total;
+        const totalFeeBmriUsd = billingCurrency === 'IDR' ? totalFeeBmri / forexRate : totalFeeBmri;
+        const selisihUsd = totalUsd - totalFeeBmriUsd;
+        const selisihIdr = usdToIdr(selisihUsd);
+
         let status: VisaRecord['STATUS'] = 'Match';
-        if (totalFeeBmri === 0 && total > 0) {
+        if (totalFeeBmriUsd === 0 && totalUsd > 0) {
           status = 'Belum Direkonsiliasi';
-        } else if (Math.abs(selisih) <= RECONCILIATION_TOLERANCE) {
+        } else if (Math.abs(selisihUsd) <= RECONCILIATION_TOLERANCE) {
           status = 'Match';
         } else {
           status = 'Deviasi';
@@ -271,6 +297,10 @@ const parseArrayBuffer = (
           'Total Fee BMRI': totalFeeBmri,
           Selisih: selisih,
           'Persentase Selisih': Number(pctSelisih.toFixed(2)),
+          totalUsd,
+          totalFeeBmriUsd,
+          selisihUsd,
+          selisihIdr,
           STATUS: status,
           CATATAN: '',
         });
